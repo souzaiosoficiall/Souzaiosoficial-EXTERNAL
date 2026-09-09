@@ -42,17 +42,8 @@ struct ThreeOneOSFiveApp: App {
                 .environmentObject(fileOperationCoordinator)
                 .environment(\.appLanguage, language)
                 .environment(\.locale, language.locale)
-            .alert(item: $updateOffer) { offer in
-                Alert(
-                    title: Text(language.text("update.title")),
-                    message: Text(language.text("update.message", offer.version)),
-                    primaryButton: .default(Text(language.text("update.agree"))) {
-                        UIApplication.shared.open(offer.url)
-                    },
-                    secondaryButton: .cancel(Text(language.text("update.dismiss"))) {
-                        AppUpdateChecker.dismiss(version: offer.version)
-                    }
-                )
+            .fullScreenCover(item: $updateOffer) { offer in
+                UpdateRequiredView(offer: offer)
             }
             .onAppear {
                 licenseManager.beginLaunchSession()
@@ -69,6 +60,70 @@ struct ThreeOneOSFiveApp: App {
             }
             .preferredColorScheme(.dark)
         }
+    }
+}
+
+private struct UpdateRequiredView: View {
+    let offer: AppUpdateChecker.Offer
+
+    var body: some View {
+        ZStack {
+            AnimatedHyperBackdrop()
+                .ignoresSafeArea()
+            Color.black.opacity(0.28)
+                .ignoresSafeArea()
+
+            VStack(spacing: 22) {
+                Image(systemName: "arrow.down.app.fill")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(AppTheme.accent)
+                    .frame(width: 72, height: 72)
+                    .background(AppTheme.accent.opacity(0.12), in: Circle())
+
+                VStack(spacing: 10) {
+                    Text("ATUALIZAÇÃO DISPONÍVEL")
+                        .font(.system(size: 22, weight: .black, design: .rounded))
+                        .tracking(0.8)
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+
+                    Text("Olá! É de extrema importância que você instale esta nova versão disponível. Você só conseguirá utilizar o EXTERNAL caso atualize.")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.72))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(3)
+
+                    Text("Versão \(offer.version) • Build \(offer.build)")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(AppTheme.accent)
+                        .padding(.top, 4)
+                }
+
+                Button {
+                    UIApplication.shared.open(offer.url)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "arrow.up.right.square.fill")
+                        Text("ATUALIZAR EXTERNAL")
+                    }
+                    .font(.system(size: 14, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 56)
+                    .background(AppTheme.accent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: AppTheme.accent.opacity(0.35), radius: 14, y: 7)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(26)
+            .frame(maxWidth: 380)
+            .background(.ultraThinMaterial.opacity(0.78), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .background(Color.black.opacity(0.42), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Color.white.opacity(0.18), lineWidth: 1))
+            .shadow(color: .black.opacity(0.45), radius: 28, y: 12)
+            .padding(.horizontal, 22)
+        }
+        .interactiveDismissDisabled(true)
+        .preferredColorScheme(.dark)
     }
 }
 

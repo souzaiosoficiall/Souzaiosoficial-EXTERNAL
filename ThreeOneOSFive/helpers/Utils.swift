@@ -129,13 +129,12 @@ enum AppPaths {
 }
 
 enum AppUpdateChecker {
-    static let dismissedVersionKey = "update.dismissedVersion"
-    static let apiURL = URL(string: "https://api.github.com/repos/YangJiiii/Souzaiosoficial EXTERNAL/releases/latest")!
-    static let fallbackURL = URL(string: "https://github.com/YangJiiii/Souzaiosoficial EXTERNAL/releases/latest")!
+    static let manifestURL = URL(string: "https://raw.githubusercontent.com/souzaiosoficiall/Souzaiosoficial-EXTERNAL/main/update.json")!
 
     struct Offer: Identifiable {
         let id = UUID()
         let version: String
+        let build: Int
         let url: URL
     }
 
@@ -145,42 +144,38 @@ enum AppUpdateChecker {
             ?? "0"
     }
 
-    static func dismiss(version: String) {
-        UserDefaults.standard.set(version, forKey: dismissedVersionKey)
+    static var currentBuild: Int {
+        Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0") ?? 0
     }
 
     static func check() async -> Offer? {
-        var request = URLRequest(url: apiURL)
+        var request = URLRequest(url: manifestURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
         request.timeoutInterval = 15
         request.setValue("Souzaiosoficial EXTERNAL", forHTTPHeaderField: "User-Agent")
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 return nil
             }
-            let decoded = try JSONDecoder().decode(GitHubRelease.self, from: data)
-            let remote = normalize(decoded.tagName)
-            guard !remote.isEmpty,
-                  isNewer(remote, than: currentVersion),
-                  UserDefaults.standard.string(forKey: dismissedVersionKey) != remote else {
+            let manifest = try JSONDecoder().decode(UpdateManifest.self, from: data)
+            guard manifest.mandatory,
+                  isNewer(manifest.version, than: currentVersion)
+                    || (normalize(manifest.version) == normalize(currentVersion) && manifest.build > currentBuild),
+                  let url = URL(string: manifest.url) else {
                 return nil
             }
-            let url = URL(string: decoded.htmlURL) ?? fallbackURL
-            return Offer(version: remote, url: url)
+            return Offer(version: normalize(manifest.version), build: manifest.build, url: url)
         } catch {
             return nil
         }
     }
 
-    private struct GitHubRelease: Decodable {
-        let tagName: String
-        let htmlURL: String
-
-        enum CodingKeys: String, CodingKey {
-            case tagName = "tag_name"
-            case htmlURL = "html_url"
-        }
+    private struct UpdateManifest: Decodable {
+        let version: String
+        let build: Int
+        let url: String
+        let mandatory: Bool
     }
 
     static func normalize(_ version: String) -> String {
