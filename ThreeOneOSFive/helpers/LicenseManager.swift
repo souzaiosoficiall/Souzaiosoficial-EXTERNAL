@@ -16,9 +16,12 @@ final class LicenseManager: ObservableObject {
     @Published private(set) var isBusy = false
     @Published private(set) var message: String?
     @Published private(set) var contactOwner: String? = "https://wa.me/5527997306436"
+    @Published private(set) var approvalCountdown = 0
+    @Published private(set) var isApproving = false
     @Published var rememberKey = true
 
     private var monitorTask: Task<Void, Never>?
+    private var approvalTask: Task<Void, Never>?
     private var lastAttemptAt: Date?
     private var sessionKey: String?
 
@@ -28,6 +31,14 @@ final class LicenseManager: ObservableObject {
 
     deinit {
         monitorTask?.cancel()
+        approvalTask?.cancel()
+    }
+
+    var licenseKey: String? { sessionKey ?? rememberedKey() }
+
+    var formattedExpiration: String {
+        guard let expirationDate else { return "Indeterminada" }
+        return expirationDate.formatted(date: .abbreviated, time: .shortened)
     }
 
     func beginLaunchSession() {
@@ -42,6 +53,7 @@ final class LicenseManager: ObservableObject {
         if isExpired {
             invalidateLocalLicense(message: "Sua licença expirou")
         } else {
+            sessionKey = key
             isActive = true
             message = "Acesso liberado"
             checkWithServer(key: key, showBusy: false)
@@ -58,10 +70,9 @@ final class LicenseManager: ObservableObject {
 
         lastAttemptAt = Date()
         isBusy = true
-        message = "Verificando acesso…"
+        message = "Verificando sua chave…"
         request(path: "/validar", key: trimmed) { [weak self] result in
             guard let self else { return }
-            self.isBusy = false
             switch result {
             case .success(let payload) where payload.status == "sucesso":
                 let expiration = payload.expirationTimestamp > 0
@@ -69,13 +80,14 @@ final class LicenseManager: ObservableObject {
                     : nil
                 self.sessionKey = trimmed
                 self.saveLicense(key: trimmed, expiration: expiration)
-                self.isActive = true
                 self.expirationDate = expiration
-                self.message = expiration.map { "Acesso aprovado — expira em \($0.formatted(date: .abbreviated, time: .shortened))" } ?? "Acesso aprovado"
-                self.startMonitoring()
+                self.message = "Chave validada com sucesso"
+                self.startApprovalAnimation()
             case .success(let payload):
+                self.isBusy = false
                 self.invalidateLocalLicense(message: payload.message ?? "Chave inválida")
             case .failure(let error):
+                self.isBusy = false
                 self.isActive = false
                 self.message = error.localizedDescription
             }
@@ -91,12 +103,16 @@ final class LicenseManager: ObservableObject {
     }
 
     func deactivate() {
+        approvalTask?.cancel()
         sessionKey = nil
+        approvalCountdown = 0
+        isApproving = false
         delete(Self.keyAccount)
         delete(Self.expirationAccount)
         delete(Self.deviceAccount)
         expirationDate = nil
         isActive = false
+        isBusy = false
         message = "Ativação removida deste dispositivo"
     }
 
@@ -105,13 +121,34 @@ final class LicenseManager: ObservableObject {
         return Date() >= expirationDate
     }
 
+    private func startApprovalAnimation() {
+        approvalTask?.cancel()
+        isApproving = true
+        isActive = false
+        approvalCountdown = 7
+        approvalTask = Task { [weak self] in
+            for remaining in stride(from: 7, through: 1, by: -1) {
+                guard let self, !Task.isCancelled else { return }
+                self.approvalCountdown = remaining
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.approvalCountdown = 0
+            self.isApproving = false
+            self.isBusy = false
+            self.isActive = true
+            self.message = "Acesso liberado"
+            self.startMonitoring()
+        }
+    }
+
     private func startMonitoring() {
         guard monitorTask == nil else { return }
         monitorTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 15_000_000_000)
                 guard !Task.isCancelled else { return }
-                await self?.performBackgroundCheck()
+                self?.performBackgroundCheck()
             }
         }
     }
@@ -219,7 +256,10 @@ final class LicenseManager: ObservableObject {
     }
 
     private func invalidateLocalLicense(message: String) {
+        approvalTask?.cancel()
         sessionKey = nil
+        isApproving = false
+        approvalCountdown = 0
         isActive = false
         expirationDate = nil
         delete(Self.keyAccount)
