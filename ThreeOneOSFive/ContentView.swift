@@ -215,8 +215,8 @@ struct ContentView: View {
             }
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                patchCard(name: "HS PESCOÇO", target: "FREE FIRE • NORMAL", package: "pescoco.3105", color: AppTheme.accent, state: $pescocoEnabled)
-                patchCard(name: "HS PEITO", target: "FREE FIRE • NORMAL", package: "peito.3105", color: AppTheme.secondaryAccent, state: $peitoEnabled)
+                patchCard(name: "HS PESCOÇO", target: "FREE FIRE • NORMAL", package: "pescoco.3105", state: $pescocoEnabled)
+                patchCard(name: "HS PEITO", target: "FREE FIRE • NORMAL", package: "peito.3105", state: $peitoEnabled)
             }
 
             HStack(spacing: 8) {
@@ -233,8 +233,8 @@ struct ContentView: View {
         }
     }
 
-    private func patchCard(name: String, target: String, package: String, color: Color, state: Binding<Bool>) -> some View {
-        PatchOptionCard(name: name, target: target, color: color, isEnabled: state, isBusy: patchOperationBusy) {
+    private func patchCard(name: String, target: String, package: String, state: Binding<Bool>) -> some View {
+        PatchOptionCard(name: name, target: target, isEnabled: state, isBusy: patchOperationBusy) {
             togglePatch(packageFilename: package, state: state)
         }
     }
@@ -332,38 +332,46 @@ struct ContentView: View {
                 .tracking(1.5)
                 .foregroundStyle(AppTheme.accent)
 
-            Button {
-                guard let destination = URL(string: "https://slat.cc/souzaiosoficial") else { return }
-                UIApplication.shared.open(destination)
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 16, weight: .bold))
-                    Text("Toda a minha comunidade")
-                        .font(.system(size: 14, weight: .black, design: .rounded))
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    LinearGradient(
-                        colors: [AppTheme.accent, AppTheme.secondaryAccent],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.white.opacity(0.25), lineWidth: 1)
-                )
-                .shadow(color: AppTheme.accent.opacity(0.45), radius: 12, y: 4)
-            }
-            .buttonStyle(.plain)
+            communityLinkButton(
+                title: "Toda a minha comunidade",
+                icon: "paperplane.fill",
+                url: "https://slat.cc/souzaiosoficial"
+            )
+            communityLinkButton(
+                title: "Meu canal do Youtube",
+                icon: "play.rectangle.fill",
+                url: "https://www.youtube.com/@souzaiosoficial"
+            )
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 8)
         .padding(.bottom, 6)
+    }
+
+    private func communityLinkButton(title: String, icon: String, url: String) -> some View {
+        Button {
+            guard let destination = URL(string: url) else { return }
+            UIApplication.shared.open(destination)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .bold))
+                Text(title)
+                    .font(.system(size: 14, weight: .black, design: .rounded))
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 13, weight: .bold))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+            .padding(.horizontal, 16)
+            .background(Color.black.opacity(0.42), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(0.32), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private func panelTitle(_ title: String, icon: String) -> some View {
@@ -482,20 +490,20 @@ struct ContentView: View {
 private struct PatchOptionCard: View {
     let name: String
     let target: String
-    let color: Color
     @Binding var isEnabled: Bool
     let isBusy: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
+            let stateColor = isEnabled ? AppTheme.accent : Color.white
             VStack(alignment: .leading, spacing: 11) {
                 HStack {
-                    Image(systemName: "bolt.fill").font(.system(size: 16, weight: .black)).foregroundStyle(color)
+                    Image(systemName: "bolt.fill").font(.system(size: 16, weight: .black)).foregroundStyle(stateColor)
                     Spacer()
                     Text(isEnabled ? "ON" : "OFF")
                         .font(.system(size: 11, weight: .black, design: .rounded))
-                        .foregroundStyle(isEnabled ? .green : .white.opacity(0.58))
+                        .foregroundStyle(stateColor)
                 }
                 Text(name)
                     .font(.system(size: 17, weight: .black, design: .rounded))
@@ -505,7 +513,7 @@ private struct PatchOptionCard: View {
                 Text(target)
                     .font(.system(size: 10, weight: .black, design: .rounded))
                     .tracking(1.3)
-                    .foregroundStyle(color)
+                    .foregroundStyle(stateColor)
                 HStack(spacing: 7) {
                     Circle().fill(isEnabled ? Color.green : Color.white.opacity(0.25)).frame(width: 8, height: 8)
                     Text(isEnabled ? "PATCH ACTIVE" : "ACTIVATE PATCH")
@@ -517,8 +525,8 @@ private struct PatchOptionCard: View {
             .frame(maxWidth: .infinity, minHeight: 142, alignment: .leading)
             .padding(14)
             .background(Color.black.opacity(0.52), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(isEnabled ? color.opacity(0.85) : color.opacity(0.28), lineWidth: isEnabled ? 1.5 : 1))
-            .shadow(color: isEnabled ? color.opacity(0.20) : .clear, radius: 12)
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(stateColor.opacity(isEnabled ? 0.9 : 0.34), lineWidth: isEnabled ? 1.5 : 1))
+            .shadow(color: isEnabled ? AppTheme.accent.opacity(0.20) : .clear, radius: 12)
         }
         .buttonStyle(.plain)
         .disabled(isBusy)
