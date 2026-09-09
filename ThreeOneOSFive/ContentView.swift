@@ -13,6 +13,8 @@ struct ContentView: View {
     @State private var patchMessage = "PRONTO — SELECIONE UM PATCH"
     @State private var pescocoEnabled = false
     @State private var peitoEnabled = false
+    @State private var pscAtnEnabled = false
+    @State private var ptAtnEnabled = false
     @State private var selectedTab = 0
 
     // ============================================================
@@ -268,6 +270,8 @@ struct ContentView: View {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 patchCard(name: "HS PESCOÇO", target: "FREE FIRE • NORMAL", package: "pescoco.3105", state: $pescocoEnabled)
                 patchCard(name: "HS PEITO", target: "FREE FIRE • NORMAL", package: "peito.3105", state: $peitoEnabled)
+                patchCard(name: "PSC/ATN", target: "FREE FIRE • NORMAL", package: "pscant.3105", state: $pscAtnEnabled)
+                patchCard(name: "PT/ATN", target: "FREE FIRE • NORMAL", package: "ptatn.3105", state: $ptAtnEnabled)
             }
 
             HStack(spacing: 8) {
@@ -445,6 +449,8 @@ struct ContentView: View {
     private func syncPatchStates() {
         pescocoEnabled = isPatchActive("pescoco.3105")
         peitoEnabled = isPatchActive("peito.3105")
+        pscAtnEnabled = isPatchActive("pscant.3105")
+        ptAtnEnabled = isPatchActive("ptatn.3105")
     }
 
     private func isPatchActive(_ packageFilename: String) -> Bool {
@@ -462,6 +468,8 @@ struct ContentView: View {
         switch packageFilename {
         case "pescoco.3105": pescocoEnabled = enabled
         case "peito.3105": peitoEnabled = enabled
+        case "pscant.3105": pscAtnEnabled = enabled
+        case "ptatn.3105": ptAtnEnabled = enabled
         default: break
         }
     }
