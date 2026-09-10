@@ -5,7 +5,6 @@ import AVFoundation
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var appState: AppState
-    @EnvironmentObject private var licenseManager: LicenseManager
     @State private var showSettings = false
     @State private var showCleaner = false
     @StateObject private var patchStore = PatchProjectStore()
@@ -13,8 +12,6 @@ struct ContentView: View {
     @State private var patchMessage = "PRONTO — SELECIONE UM PATCH"
     @State private var pescocoEnabled = false
     @State private var peitoEnabled = false
-    @State private var pscAtnEnabled = false
-    @State private var ptAtnEnabled = false
     @State private var selectedTab = 0
 
     // ============================================================
@@ -84,7 +81,6 @@ struct ContentView: View {
             VStack(spacing: 20) {
                 bannerView
                 brandHeader
-                licensePanel
                 devicePanel
                 developerCredits
             }
@@ -196,55 +192,6 @@ struct ContentView: View {
         }
     }
 
-    private var licensePanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            panelTitle("MINHA LICENÇA", icon: "key.fill")
-
-            HStack(spacing: 12) {
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(.green)
-                    .frame(width: 34, height: 34)
-                    .background(Color.green.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("ACESSO ATIVO")
-                        .font(.system(size: 13, weight: .black, design: .rounded))
-                        .foregroundStyle(.green)
-                    Text("Sua licença está vinculada a este dispositivo")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.52))
-                }
-                Spacer()
-            }
-
-            licenseInfoRow(title: "KEY", value: licenseManager.licenseKey ?? "Não disponível", icon: "key.horizontal.fill")
-            licenseInfoRow(title: "VÁLIDA ATÉ", value: licenseManager.formattedExpiration, icon: "calendar.badge.clock")
-        }
-        .padding(16)
-        .background(Color.black.opacity(0.42), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.green.opacity(0.28), lineWidth: 1))
-    }
-
-    private func licenseInfoRow(title: String, value: String, icon: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(.white.opacity(0.56))
-                .frame(width: 20)
-            Text(title)
-                .font(.system(size: 10, weight: .black, design: .rounded))
-                .foregroundStyle(.white.opacity(0.48))
-            Spacer(minLength: 8)
-            Text(value)
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .padding(.top, 2)
-    }
-
     private var devicePanel: some View {
         VStack(spacing: 0) {
             panelTitle("STATUS DO DISPOSITIVO", icon: "shield.lefthalf.filled")
@@ -270,8 +217,6 @@ struct ContentView: View {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 patchCard(name: "HS PESCOÇO", target: "FREE FIRE • NORMAL", package: "pescoco.3105", state: $pescocoEnabled)
                 patchCard(name: "HS PEITO", target: "FREE FIRE • NORMAL", package: "peito.3105", state: $peitoEnabled)
-                patchCard(name: "PSC/ATN", target: "FREE FIRE • NORMAL", package: "pscant.3105", state: $pscAtnEnabled)
-                patchCard(name: "PT/ATN", target: "FREE FIRE • NORMAL", package: "ptatn.3105", state: $ptAtnEnabled)
             }
 
             HStack(spacing: 8) {
@@ -449,8 +394,6 @@ struct ContentView: View {
     private func syncPatchStates() {
         pescocoEnabled = isPatchActive("pescoco.3105")
         peitoEnabled = isPatchActive("peito.3105")
-        pscAtnEnabled = isPatchActive("pscant.3105")
-        ptAtnEnabled = isPatchActive("ptatn.3105")
     }
 
     private func isPatchActive(_ packageFilename: String) -> Bool {
@@ -468,8 +411,6 @@ struct ContentView: View {
         switch packageFilename {
         case "pescoco.3105": pescocoEnabled = enabled
         case "peito.3105": peitoEnabled = enabled
-        case "pscant.3105": pscAtnEnabled = enabled
-        case "ptatn.3105": ptAtnEnabled = enabled
         default: break
         }
     }

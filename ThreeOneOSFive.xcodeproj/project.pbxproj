@@ -6,9 +6,11 @@
 	objectVersion = 56;
 	objects = {
 
-/* Begin PBXBuildFile section */
+	/* Begin PBXBuildFile section */
 		3105P301 /* pescoco.3105 in Resources */ = {isa = PBXBuildFile; fileRef = 3105P201; };
 		3105P302 /* peito.3105 in Resources */ = {isa = PBXBuildFile; fileRef = 3105P202; };
+		3105P303 /* pscant.3105 in Resources */ = {isa = PBXBuildFile; fileRef = 3105P203; };
+		3105P304 /* ptatn.3105 in Resources */ = {isa = PBXBuildFile; fileRef = 3105P204; };
 		3105A200 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105A020; };
 		3105A201 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105A021; };
 		3105A203 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3105A023; };
@@ -78,6 +80,8 @@
 /* Begin PBXFileReference section */
 		3105P201 /* pescoco.3105 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ThreeOneOSFive/Patches/pescoco.3105"; sourceTree = "<group>"; };
 		3105P202 /* peito.3105 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ThreeOneOSFive/Patches/peito.3105"; sourceTree = "<group>"; };
+		3105P203 /* pscant.3105 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ThreeOneOSFive/Patches/pscant.3105"; sourceTree = "<group>"; };
+		3105P204 /* ptatn.3105 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ThreeOneOSFive/Patches/ptatn.3105"; sourceTree = "<group>"; };
 		3105A010 /* Souzaiosoficial EXTERNAL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Souzaiosoficial EXTERNAL.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3105A020 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		3105A021 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -361,10 +365,12 @@
 		3105A800 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (
-				3105P301,
-				3105P302,
-				3105A211,
+				files = (
+					3105P301,
+					3105P302,
+					3105P303,
+					3105P304,
+					3105A211,
 				3105A228,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -656,4 +662,3 @@
 	};
 	rootObject = 3105A900;
 }
-
