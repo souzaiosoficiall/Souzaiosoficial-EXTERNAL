@@ -57,22 +57,6 @@ enum PatchProjectLibrary {
         return root
     }
 
-    
-    static func seedBundledPatchesIfNeeded(fileManager: FileManager = .default) {
-        guard let root = try? packageRootURL(fileManager: fileManager) else { return }
-        let bundle = Bundle.main
-        let nested = bundle.urls(forResourcesWithExtension: "3105", subdirectory: "Patches") ?? []
-        let flat = bundle.urls(forResourcesWithExtension: "3105", subdirectory: nil) ?? []
-        let bundled = Set(nested + flat)
-        for url in bundled {
-            let dest = root.appendingPathComponent(url.lastPathComponent)
-            if !fileManager.fileExists(atPath: dest.path) {
-                try? fileManager.copyItem(at: url, to: dest)
-                log("patch: seeded bundled \(url.lastPathComponent)")
-            }
-        }
-    }
-
     static func load(fileManager: FileManager = .default) -> [PatchLibraryItem] {
         guard let root = try? packageRootURL(fileManager: fileManager),
               let urls = try? fileManager.contentsOfDirectory(
@@ -90,23 +74,7 @@ enum PatchProjectLibrary {
                 if let contentKey = (try? PatchKeyStore.load(for: summary)) ?? nil {
                     decoded = try? PatchPackageCodec.decode(data, contentKey: contentKey)
                 } else if summary.isPasswordProtected {
-                } else if summary.isPasswordProtected {
-                    let name = url.deletingPathExtension().lastPathComponent.lowercased()
-                    let isBundledName = name.hasPrefix("souzaiosoficial") || ["pescoco","peito","holograma","pscant","ptatn"].contains(name) || name.contains("file (")
-                    if isBundledName {
-                        do {
-                            let bundled = try PatchPackageCodec.decode(
-                                data,
-                                password: PatchPackageCodec.bundledResourcePassword
-                            )
-                            try PatchKeyStore.store(bundled.contentKey, for: summary)
-                            decoded = bundled
-                        } catch {
-                            decoded = nil
-                        }
-                    } else {
-                        decoded = nil
-                    }
+                    decoded = nil
                 } else {
                     decoded = try PatchPackageCodec.decode(data, password: nil)
                 }
