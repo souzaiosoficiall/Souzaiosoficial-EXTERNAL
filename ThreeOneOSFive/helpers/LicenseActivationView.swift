@@ -10,7 +10,7 @@ struct LicenseActivationView: View {
 
     var body: some View {
         ZStack {
-            AnimatedHyperBackdrop()
+            Color.black.ignoresSafeArea()
                 .ignoresSafeArea()
 
             Color.black.opacity(0.15)
