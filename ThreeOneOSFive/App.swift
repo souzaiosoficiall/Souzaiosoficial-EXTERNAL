@@ -3,12 +3,6 @@ import SwiftUI
 @main
 struct ThreeOneOSFiveApp: App {
     @StateObject private var appState = AppState()
-
-import SwiftUI
-
-@main
-struct ThreeOneOSFiveApp: App {
-    @StateObject private var appState = AppState()
     @State private var hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
 
     var body: some Scene {
