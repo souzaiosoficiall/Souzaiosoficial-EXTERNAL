@@ -127,11 +127,11 @@ static void ensureLaunchServicesLoaded(void) {
         };
         for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++) {
             if (dlopen(candidates[i], RTLD_LAZY | RTLD_GLOBAL)) {
-                NSLog(@"[Souzaiosoficial EXTERNAL] ls: loaded %s", candidates[i]);
+                NSLog(@"[3105] ls: loaded %s", candidates[i]);
                 return;
             }
         }
-        NSLog(@"[Souzaiosoficial EXTERNAL] ls: CoreServices/MobileCoreServices dlopen failed");
+        NSLog(@"[3105] ls: CoreServices/MobileCoreServices dlopen failed");
     });
 }
 
@@ -141,17 +141,17 @@ static NSDictionary *appsFromWorkspace(void) {
 
     Class workspaceClass = NSClassFromString(@"LSApplicationWorkspace");
     if (!workspaceClass) {
-        NSLog(@"[Souzaiosoficial EXTERNAL] ls: LSApplicationWorkspace class unavailable");
+        NSLog(@"[3105] ls: LSApplicationWorkspace class unavailable");
         return result;
     }
     SEL defaultWorkspaceSel = NSSelectorFromString(@"defaultWorkspace");
     if (![workspaceClass respondsToSelector:defaultWorkspaceSel]) {
-        NSLog(@"[Souzaiosoficial EXTERNAL] ls: defaultWorkspace selector unavailable");
+        NSLog(@"[3105] ls: defaultWorkspace selector unavailable");
         return result;
     }
     id workspace = ((id (*)(id, SEL))objc_msgSend)(workspaceClass, defaultWorkspaceSel);
     if (!workspace) {
-        NSLog(@"[Souzaiosoficial EXTERNAL] ls: defaultWorkspace returned nil");
+        NSLog(@"[3105] ls: defaultWorkspace returned nil");
         return result;
     }
 
@@ -166,14 +166,14 @@ static NSDictionary *appsFromWorkspace(void) {
             usedSelector = selectorName;
             break;
         }
-        NSLog(@"[Souzaiosoficial EXTERNAL] ls: %@ returned %lu", selectorName,
+        NSLog(@"[3105] ls: %@ returned %lu", selectorName,
               (unsigned long)([candidate isKindOfClass:[NSArray class]] ? [candidate count] : 0));
     }
     if (!apps || apps.count == 0) {
-        NSLog(@"[Souzaiosoficial EXTERNAL] ls: workspace enumeration empty");
+        NSLog(@"[3105] ls: workspace enumeration empty");
         return result;
     }
-    NSLog(@"[Souzaiosoficial EXTERNAL] ls: %@ returned %lu proxies", usedSelector, (unsigned long)apps.count);
+    NSLog(@"[3105] ls: %@ returned %lu proxies", usedSelector, (unsigned long)apps.count);
 
     NSUInteger withContainer = 0;
     for (id app in apps) {
@@ -218,7 +218,7 @@ static NSDictionary *appsFromWorkspace(void) {
             result[bundleID] = entry;
         }
     }
-    NSLog(@"[Souzaiosoficial EXTERNAL] ls: extracted %lu apps (%lu with container)",
+    NSLog(@"[3105] ls: extracted %lu apps (%lu with container)",
           (unsigned long)result.count, (unsigned long)withContainer);
     return result;
 }
@@ -227,7 +227,7 @@ NSDictionary<NSString *, NSDictionary *> *installedAppInfo(void) {
     NSDictionary *workspace = appsFromWorkspace();
     if (workspace.count > 0) return workspace;
     NSDictionary *mobileInstallation = appsFromMobileInstallation();
-    NSLog(@"[Souzaiosoficial EXTERNAL] ls: workspace empty; MobileInstallation=%lu",
+    NSLog(@"[3105] ls: workspace empty; MobileInstallation=%lu",
           (unsigned long)mobileInstallation.count);
     return mobileInstallation;
 }
@@ -335,59 +335,6 @@ NSDictionary *appInfoForBundleID(NSString *bundleID) {
     }
 
     return result;
-}
-
-
-NSString *containerPathForBundleID(NSString *bundleID) {
-    if (bundleID.length == 0) return nil;
-
-    // Direct LSApplicationProxy lookup (more reliable than full enumeration for one ID)
-    Class proxyClass = NSClassFromString(@"LSApplicationProxy");
-    if (proxyClass) {
-        SEL appProxySel = NSSelectorFromString(@"applicationProxyForIdentifier:");
-        if ([proxyClass respondsToSelector:appProxySel]) {
-            id proxy = ((id (*)(id, SEL, id))objc_msgSend)(proxyClass, appProxySel, bundleID);
-            if (proxy) {
-                for (NSString *selectorName in @[
-                    @"dataContainerURL",
-                    @"containerURL",
-                    @"bundleContainerURL"
-                ]) {
-                    SEL containerSel = NSSelectorFromString(selectorName);
-                    if (![proxy respondsToSelector:containerSel]) continue;
-                    id value = ((id (*)(id, SEL))objc_msgSend)(proxy, containerSel);
-                    NSString *path = [value isKindOfClass:[NSURL class]] ? [value path] : value;
-                    if ([path isKindOfClass:[NSString class]] && path.length > 0) {
-                        // Prefer data container (Application UUID folder)
-                        if ([path containsString:@"/Containers/Data/Application/"] ||
-                            [path containsString:@"/Containers/Bundle/Application/"]) {
-                            NSLog(@"[Souzaiosoficial EXTERNAL] containerPathForBundleID(%@) via %@ = %@",
-                                  bundleID, selectorName, path);
-                            return path;
-                        }
-                        NSLog(@"[Souzaiosoficial EXTERNAL] containerPathForBundleID(%@) candidate %@ = %@",
-                              bundleID, selectorName, path);
-                        return path;
-                    }
-                }
-            }
-        }
-    }
-
-    // Fallback: installedAppInfo map
-    NSDictionary *all = installedAppInfo();
-    NSDictionary *entry = all[bundleID];
-    if ([entry isKindOfClass:[NSDictionary class]]) {
-        NSString *path = entry[@"container"];
-        if ([path isKindOfClass:[NSString class]] && path.length > 0) {
-            NSLog(@"[Souzaiosoficial EXTERNAL] containerPathForBundleID(%@) via installedAppInfo = %@",
-                  bundleID, path);
-            return path;
-        }
-    }
-
-    NSLog(@"[Souzaiosoficial EXTERNAL] containerPathForBundleID(%@) not found", bundleID);
-    return nil;
 }
 
 BOOL openApplicationForBundleID(NSString *bundleID) {

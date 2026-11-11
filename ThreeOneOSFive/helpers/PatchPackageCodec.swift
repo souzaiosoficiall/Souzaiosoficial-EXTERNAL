@@ -4,10 +4,8 @@ import Foundation
 import Security
 
 enum PatchPackageCodec {
-    /// Password used only for app-bundled .3105 resources (pescoco/peito/etc).
-    static let bundledResourcePassword = "3105"
-
     private static let magic = Data("3105PATCH\0".utf8)
+    static let bundledResourcePassword = "3105"
     static let latestSchemaVersion = 3
     private static let minimumSchemaVersion = 1
 

@@ -1,6 +1,6 @@
 //
 //  AntiDetection.m
-//  Souzaiosoficial EXTERNAL
+//  3105
 //
 //  Prevents the app from being flagged as jailbroken by common
 //  jailbreak-detection checks. Safe because the app never forks.

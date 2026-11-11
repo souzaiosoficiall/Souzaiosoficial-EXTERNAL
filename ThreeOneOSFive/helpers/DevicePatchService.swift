@@ -90,6 +90,13 @@ enum DevicePatchService {
                   ContainerStore.isApplicationContainerPath(path) else {
                 throw PatchPackageError.targetAppUnavailable(bundleID)
             }
+            // A staged (simulated) container lives inside this app's own sandbox.
+            // Writing there would report success while never touching the real
+            // target app — refuse with a clear, actionable error instead.
+            if LocalVPNPairingManager.shared.isPairedStagingContainerPath(path) {
+                log("patch: only a staged (sandbox-internal) container is available for \(bundleID) — refusing to fake-apply")
+                throw PatchPackageError.containerAccessUnavailable(bundleID)
+            }
             roots[bundleID] = PatchPathValidator.canonicalFileURL(URL(fileURLWithPath: path, isDirectory: true))
         }
         return try operation(roots)

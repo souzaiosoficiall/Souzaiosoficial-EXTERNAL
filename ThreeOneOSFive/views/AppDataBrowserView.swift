@@ -14,9 +14,17 @@ struct AppDataBrowserView: View {
     @State private var hasLoaded = false
     @State private var workspaceURL: URL?
     @Binding private var tabSession: FilesTabSession
+    let onOpenSettings: () -> Void
+    let onOpenLogs: () -> Void
 
-    init(tabSession: Binding<FilesTabSession>) {
+    init(
+        tabSession: Binding<FilesTabSession>,
+        onOpenSettings: @escaping () -> Void = {},
+        onOpenLogs: @escaping () -> Void = {}
+    ) {
         _tabSession = tabSession
+        self.onOpenSettings = onOpenSettings
+        self.onOpenLogs = onOpenLogs
     }
 
     private var filteredApps: [InstalledApp] {
@@ -39,7 +47,12 @@ struct AppDataBrowserView: View {
     }
 
     var body: some View {
-        NavigationStack(path: activeNavigationPath) {
+        navigationContent(tabID: tabSession.selectedTabID)
+            .id(tabSession.selectedTabID)
+    }
+
+    private func navigationContent(tabID: UUID) -> some View {
+        NavigationStack(path: navigationPath(for: tabID)) {
             appList
             .navigationTitle(language.text("browser.title"))
             .navigationBarTitleDisplayMode(.inline)
@@ -58,6 +71,11 @@ struct AppDataBrowserView: View {
                     .disabled(isResolving)
                     .accessibilityLabel(language.text("browser.retry"))
                 }
+                AppUtilityToolbar(
+                    language: language,
+                    onOpenSettings: onOpenSettings,
+                    onOpenLogs: onOpenLogs
+                )
             }
             .onAppear {
                 if workspaceURL == nil {
@@ -90,10 +108,10 @@ struct AppDataBrowserView: View {
         }
     }
 
-    private var activeNavigationPath: Binding<[FileBrowserDestination]> {
+    private func navigationPath(for tabID: UUID) -> Binding<[FileBrowserDestination]> {
         Binding(
-            get: { tabSession.activeTab?.navigationPath ?? [] },
-            set: { tabSession.setActiveNavigationPath($0) }
+            get: { tabSession.navigationPath(for: tabID) },
+            set: { tabSession.setNavigationPath($0, for: tabID) }
         )
     }
 
@@ -119,14 +137,14 @@ struct AppDataBrowserView: View {
                     let workspaceDestination = FileBrowserDestination(
                         containerPath: workspaceURL.path,
                         startPath: workspaceURL.path,
-                        title: "Souzaiosoficial EXTERNAL",
+                        title: "3105",
                         bundleID: nil
                     )
                     NavigationLink(value: workspaceDestination) {
                         HStack(spacing: 10) {
                             AppRowIcon(systemName: "folder.fill")
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Souzaiosoficial EXTERNAL")
+                                Text("3105")
                                     .font(.subheadline.weight(.semibold))
                                 Text(language.text("browser.workspace_subtitle"))
                                     .font(.caption)

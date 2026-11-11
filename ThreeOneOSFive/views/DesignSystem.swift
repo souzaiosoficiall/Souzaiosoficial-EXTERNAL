@@ -1,12 +1,15 @@
 import SwiftUI
 
 enum AppTheme {
-    // Dark red, white and black palette shared by every primary screen.
-    static let accent = Color(red: 0.42, green: 0.008, blue: 0.016)
-    static let secondaryAccent = Color.white
-    static let pageBackground = Color(red: 0.05, green: 0.05, blue: 0.055)
-    static let consoleBackground = Color(red: 0.025, green: 0.004, blue: 0.006)
-    static let referenceCard = Color(red: 0.10, green: 0.006, blue: 0.010).opacity(0.78)
+    static let accent = Color(
+        uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 1.00, green: 0.64, blue: 0.42, alpha: 1.00)
+                : UIColor(red: 0.85, green: 0.42, blue: 0.20, alpha: 1.00)
+        }
+    )
+    static let pageBackground = Color(uiColor: .systemBackground)
+    static let consoleBackground = Color(uiColor: .secondarySystemBackground)
     static let pageInset: CGFloat = 16
     static let rowIconSize: CGFloat = 17
     static let rowIconFrame: CGFloat = 28
@@ -16,6 +19,23 @@ enum AppTheme {
     static let appIconSize: CGFloat = 32
     static let emptyIconSize: CGFloat = 30
     static let selectionIconSize: CGFloat = 18
+    static let contentCardCornerRadius: CGFloat = 20
+    static let contentCardInset: CGFloat = 16
+    static let contentCardPadding: CGFloat = 16
+}
+
+struct AppCardBorder: View {
+    var body: some View {
+        RoundedRectangle(
+            cornerRadius: AppTheme.contentCardCornerRadius,
+            style: .continuous
+        )
+        .strokeBorder(
+            Color(uiColor: .separator).opacity(0.22),
+            lineWidth: 0.5
+        )
+        .accessibilityHidden(true)
+    }
 }
 
 struct AppRowIcon: View {
@@ -103,9 +123,7 @@ struct AppLogo: View {
         .accessibilityHidden(true)
     }
 }
-
-// MARK: - Missing UI components (stubs for CI build)
-
+// Added from Souza for LicenseActivationView
 struct AnimatedHyperBackdrop: View {
     var body: some View {
         ZStack {

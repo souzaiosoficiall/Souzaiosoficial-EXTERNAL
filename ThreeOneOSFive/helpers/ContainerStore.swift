@@ -103,19 +103,22 @@ enum ContainerStore {
         let detail = lookupError.map(String.init) ?? "unavailable"
         log("patch: MHA-C2 could not resolve \(bundleID), detail=\(detail)")
 
-        // Fallback for iOS builds where MCM refuses to hand out sandbox
-        // tokens (e.g. iOS 18.1.x): scan the app-data root with the inode
-        // walk and read each container's MCM metadata plist directly. The
-        // raw reads only succeed when the sandbox escape is active.
+        // Fallback 1: metadata scan on filesystem
         if let scanned = resolveAppContainerPathByMetadataScan(bundleID: bundleID) {
             log("patch: filesystem metadata scan resolved \(bundleID)")
             return scanned
+        }
+
+        // Fallback 2: LocalDevVPN + Device Pairing ("3105") container resolution for iOS 27+ official & all iOS builds
+        if let pairedPath = LocalVPNPairingManager.shared.resolveContainerPath(for: bundleID),
+           isApplicationContainerPath(pairedPath) {
+            log("patch: LocalDevVPN + Pairing (3105) resolved \(bundleID) -> \(pairedPath)")
+            return pairedPath
         }
         return nil
     }
 
     static func resolveAppContainerPathByMetadataScan(bundleID: String) -> String? {
-        // iOS < 26: kernel R/W is enough, no need to require full sandbox escape
         if KernelExploit.requiresSandboxEscape, !KernelExploit.hasSandboxAccess() {
             log("patch: metadata scan skipped — sandbox access not active")
             return nil
@@ -153,7 +156,6 @@ enum ContainerStore {
                     missingContainer += 1
                 }
             }
-            // Skip entries we cannot browse — empty path is dropped by mergers anyway.
             guard !containerPath.isEmpty else { continue }
             apps.append(InstalledApp(
                 bundleID: bundleID,
@@ -162,6 +164,11 @@ enum ContainerStore {
                 version: info["version"] as? String ?? "",
                 icon: info["icon"] as? UIImage
             ))
+        }
+        if apps.isEmpty && LocalVPNPairingManager.shared.isDevicePaired {
+            let pairedApps = LocalVPNPairingManager.shared.installedAppsFromPairing()
+            log("browser: LocalDevVPN + Pairing provided \(pairedApps.count) app containers")
+            return pairedApps
         }
         log("browser: LS/API apps=\(apps.count) raw=\(raw.count) missingContainer=\(missingContainer)")
         return apps
@@ -371,17 +378,12 @@ enum ContainerStore {
             ? enumerateDirectories(path: systemDataRoot)
             : traversedSystemDirectories
         for directory in systemDirectories {
-            // Attempt the raw metadata read even without a traversal grant:
-            // it succeeds when the sandbox escape is active, which is the
-            // only path left when MCM/bad_query grants are denied.
             guard readContainerMetadata(containerPath: directory)?.bundleID == "com.apple.lsd" else {
                 continue
             }
             addCachePath((directory as NSString).appendingPathComponent("Library/Caches"))
         }
 
-        // Older and Simulator layouts keep the same store outside the MCM
-        // service-container layout. They are harmless fallbacks on device.
         addCachePath("/var/db/lsd")
         addCachePath("/var/mobile/Library/Caches")
 
@@ -434,6 +436,9 @@ enum ContainerStore {
     }
 
     static func isApplicationContainerPath(_ path: String) -> Bool {
+        if LocalVPNPairingManager.shared.isPairedStagingContainerPath(path) {
+            return true
+        }
         let canonicalRoot = ContainerDiscoveryMerger.canonicalPath(appDataRoot)
         let canonicalPath = ContainerDiscoveryMerger.canonicalPath(path)
         guard canonicalPath.hasPrefix(canonicalRoot + "/") else { return false }
@@ -525,6 +530,10 @@ enum ContainerStore {
     static func grantContainerAccess(_ containerPath: String) -> Int64 {
         guard shouldUseBadQuery else { return -1 }
         let clean = containerPath.hasSuffix("/") ? String(containerPath.dropLast()) : containerPath
+        if WorseQueryService.hasAppGroupEntitlement {
+            let wq = WorseQueryService.grantAccess(to: clean)
+            if wq >= 0 { return wq }
+        }
         var pathC = clean.utf8CString.map { Int8($0) }
         return bad_query(&pathC, true, nil, false)
     }
@@ -562,9 +571,6 @@ enum ContainerStore {
     ) -> InstalledApp? {
         guard UUID(uuidString: fallback.bundleID) != nil else { return fallback }
 
-        // Read the MCM metadata plist directly. With the sandbox escape
-        // active the raw read succeeds even when every MCM/bad_query grant
-        // is denied; without it the read simply fails and we fall through.
         if let metadata = readContainerMetadata(containerPath: fallback.containerPath) {
             let bundleID = metadata.bundleID.trimmingCharacters(in: .whitespacesAndNewlines)
             if ContainerBundleCandidateResolver.isValidBundleIdentifier(bundleID),

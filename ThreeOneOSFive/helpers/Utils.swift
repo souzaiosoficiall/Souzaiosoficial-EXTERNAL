@@ -2,7 +2,6 @@ import Foundation
 import UIKit
 import Darwin
 import Combine
-import AudioToolbox
 
 // MARK: - Global logger
 class AppLog: ObservableObject {
@@ -12,7 +11,7 @@ class AppLog: ObservableObject {
         DispatchQueue.main.async { self.entries.append(msg) }
     }
 }
-func log(_ msg: String) { AppLog.shared.append("[Souzaiosoficial EXTERNAL] \(msg)") }
+func log(_ msg: String) { AppLog.shared.append("[3105] \(msg)") }
 
 // Retain the pipe for the app's lifetime so stdout/stderr stay redirected.
 private var logCapturePipe: Pipe?
@@ -130,12 +129,13 @@ enum AppPaths {
 }
 
 enum AppUpdateChecker {
-    static let manifestURL = URL(string: "https://raw.githubusercontent.com/souzaiosoficiall/Souzaiosoficial-EXTERNAL/main/update.json")!
+    static let dismissedVersionKey = "update.dismissedVersion"
+    static let apiURL = URL(string: "https://api.github.com/repos/YangJiiii/3105/releases/latest")!
+    static let fallbackURL = URL(string: "https://github.com/YangJiiii/3105/releases/latest")!
 
     struct Offer: Identifiable {
         let id = UUID()
         let version: String
-        let build: Int
         let url: URL
     }
 
@@ -145,38 +145,42 @@ enum AppUpdateChecker {
             ?? "0"
     }
 
-    static var currentBuild: Int {
-        Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0") ?? 0
+    static func dismiss(version: String) {
+        UserDefaults.standard.set(version, forKey: dismissedVersionKey)
     }
 
     static func check() async -> Offer? {
-        var request = URLRequest(url: manifestURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
+        var request = URLRequest(url: apiURL)
         request.timeoutInterval = 15
-        request.setValue("Souzaiosoficial EXTERNAL", forHTTPHeaderField: "User-Agent")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("3105", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 return nil
             }
-            let manifest = try JSONDecoder().decode(UpdateManifest.self, from: data)
-            guard manifest.mandatory,
-                  isNewer(manifest.version, than: currentVersion)
-                    || (normalize(manifest.version) == normalize(currentVersion) && manifest.build > currentBuild),
-                  let url = URL(string: manifest.url) else {
+            let decoded = try JSONDecoder().decode(GitHubRelease.self, from: data)
+            let remote = normalize(decoded.tagName)
+            guard !remote.isEmpty,
+                  isNewer(remote, than: currentVersion),
+                  UserDefaults.standard.string(forKey: dismissedVersionKey) != remote else {
                 return nil
             }
-            return Offer(version: normalize(manifest.version), build: manifest.build, url: url)
+            let url = URL(string: decoded.htmlURL) ?? fallbackURL
+            return Offer(version: remote, url: url)
         } catch {
             return nil
         }
     }
 
-    private struct UpdateManifest: Decodable {
-        let version: String
-        let build: Int
-        let url: String
-        let mandatory: Bool
+    private struct GitHubRelease: Decodable {
+        let tagName: String
+        let htmlURL: String
+
+        enum CodingKeys: String, CodingKey {
+            case tagName = "tag_name"
+            case htmlURL = "html_url"
+        }
     }
 
     static func normalize(_ version: String) -> String {
@@ -202,15 +206,5 @@ enum AppUpdateChecker {
     private static func numericParts(_ version: String) -> [Int] {
         let core = version.split(separator: "-").first.map(String.init) ?? version
         return core.split(separator: ".").compactMap { Int($0.filter(\.isNumber)) }
-    }
-}
-
-// MARK: - Audio feedback stubs
-enum PatchAudioFeedback {
-    static func bypassActivated() {
-        AudioServicesPlaySystemSound(1057)
-    }
-    static func originalRestored() {
-        AudioServicesPlaySystemSound(1057)
     }
 }
