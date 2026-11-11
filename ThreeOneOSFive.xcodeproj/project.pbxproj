@@ -340,8 +340,8 @@
 			);
 			dependencies = (
 			);
-			name = "Souzaiosoficial EXTERNAL";
-			productName = "Souzaiosoficial EXTERNAL";
+			name = 3105;
+			productName = 3105;
 			productReference = 3105A010;
 			productType = "com.apple.product-type.application";
 		};
@@ -497,7 +497,7 @@
 				MARKETING_VERSION = 2.2;
 				OTHER_LDFLAGS = "-lz";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.mobile.MobileHouseArrest";
-				PRODUCT_NAME = "Souzaiosoficial EXTERNAL";
+				PRODUCT_NAME = 3105;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "ThreeOneOSFive/ThreeOneOSFive-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -531,7 +531,7 @@
 				MARKETING_VERSION = 2.2;
 				OTHER_LDFLAGS = "-lz";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.mobile.MobileHouseArrest";
-				PRODUCT_NAME = "Souzaiosoficial EXTERNAL";
+				PRODUCT_NAME = 3105;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "ThreeOneOSFive/ThreeOneOSFive-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
