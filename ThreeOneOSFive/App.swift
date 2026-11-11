@@ -6,6 +6,7 @@ import Combine
 struct ThreeOneOSFiveApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var pairingManager = LocalVPNPairingManager.shared
+    @StateObject private var licenseManager = LicenseManager()
     @StateObject private var patchDraftCoordinator = PatchDraftCoordinator()
     @StateObject private var fileOperationCoordinator = FileOperationCoordinator()
     @StateObject private var patchStore = PatchProjectStore()
@@ -19,7 +20,7 @@ struct ThreeOneOSFiveApp: App {
 
     init() {
         setupLogCapture()
-        log("app: 3105 launching — iOS \(AppInfo.osVersion) (\(AppInfo.osBuild)) \(AppInfo.machineName)")
+        log("app: Souzaiosoficial 3105 launching — iOS \(AppInfo.osVersion) (\(AppInfo.osBuild)) \(AppInfo.machineName)")
     }
 
     private var language: AppLanguage {
@@ -36,18 +37,26 @@ struct ThreeOneOSFiveApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                ContentView()
-                    .environmentObject(appState)
-                    .environmentObject(pairingManager)
-                    .environmentObject(patchDraftCoordinator)
-                    .environmentObject(fileOperationCoordinator)
-                    .environmentObject(patchStore)
-                    .environmentObject(repositoryStore)
-                    .environment(\.appLanguage, language)
-                    .environment(\.locale, language.locale)
-                    .environment(\.layoutDirection, language.layoutDirection)
-                    .opacity(showOnboarding ? 0 : 1)
-                    .allowsHitTesting(!showOnboarding)
+                Group {
+                    if licenseManager.isActive {
+                        ContentView()
+                            .environmentObject(appState)
+                            .environmentObject(pairingManager)
+                            .environmentObject(patchDraftCoordinator)
+                            .environmentObject(fileOperationCoordinator)
+                            .environmentObject(patchStore)
+                            .environmentObject(repositoryStore)
+                            .environmentObject(licenseManager)
+                            .environment(\.appLanguage, language)
+                            .environment(\.locale, language.locale)
+                            .environment(\.layoutDirection, language.layoutDirection)
+                    } else {
+                        LicenseActivationView(manager: licenseManager)
+                            .environmentObject(appState)
+                    }
+                }
+                .opacity(showOnboarding ? 0 : 1)
+                .allowsHitTesting(!showOnboarding)
 
                 if showOnboarding {
                     OnboardingView {
@@ -91,6 +100,7 @@ struct ThreeOneOSFiveApp: App {
                 )
             }
             .onAppear {
+                licenseManager.beginLaunchSession()
                 if !showOnboarding {
                     appState.detectSupport()
                     checkForUpdate()
@@ -98,6 +108,7 @@ struct ThreeOneOSFiveApp: App {
             }
             .onChange(of: scenePhase) { phase in
                 guard phase == .active, !showOnboarding else { return }
+                licenseManager.beginLaunchSession()
                 pairingManager.refreshLiveHeartbeatAndTunnel()
                 appState.detectSupport()
             }
@@ -105,9 +116,6 @@ struct ThreeOneOSFiveApp: App {
                 appState.detectSupport()
             }
             .onOpenURL { url in
-                // Only true pairing records go to the pairing importer.
-                // (Previously any file whose *name* contained "pair" was
-                // misrouted away from the patch importer.)
                 let ext = url.pathExtension.lowercased()
                 let isPairingFile = ext == "mobiledevicepairing"
                     || (ext == "plist" && url.lastPathComponent.lowercased().contains("pair"))
@@ -116,127 +124,6 @@ struct ThreeOneOSFiveApp: App {
                     appState.detectSupport()
                 } else {
                     patchDraftCoordinator.presentImport(url)
-                }
-            }
-        }
-    }
-}
-
-class AppState: ObservableObject {
-    @Published var exploitStatus: ExploitStatus = .notStarted
-    @Published var unsupportedMessage: String?
-    @Published var kernelExploitRunning = false
-
-    private var autoRunAttempted = false
-
-    var kernelExploitApplicable: Bool {
-        KernelExploit.isApplicable(
-            major: AppInfo.versionTuple.major,
-            minor: AppInfo.versionTuple.minor,
-            patch: AppInfo.versionTuple.patch,
-            build: AppInfo.osBuild
-        )
-    }
-
-    var isSupported: Bool { unsupportedMessage == nil }
-
-    func detectSupport() {
-        let v = AppInfo.versionTuple
-        let supported = ExploitSupportPolicy.isSupported(
-            major: v.major,
-            minor: v.minor,
-            patch: v.patch,
-            build: AppInfo.osBuild
-        )
-#if targetEnvironment(simulator)
-        if ProcessInfo.processInfo.arguments.contains("--simulate-access") {
-            exploitStatus = .success(method: "Simulator preview")
-        }
-#endif
-
-        unsupportedMessage = supported ? nil : "iOS \(AppInfo.osVersion) (\(AppInfo.osBuild))"
-        if let unsupportedMessage {
-            exploitStatus = .unsupported(unsupportedMessage)
-            return
-        }
-
-        let pairing = LocalVPNPairingManager.shared
-        if pairing.isReadyForDeviceOperations || pairing.isDevicePaired {
-            exploitStatus = .success(method: pairing.activeMethodDescription)
-            log("app: access ready via \(pairing.activeMethodDescription) on iOS \(AppInfo.osVersion) (\(AppInfo.osBuild))")
-            return
-        }
-
-        let applicable = KernelExploit.isApplicable(
-            major: v.major,
-            minor: v.minor,
-            patch: v.patch,
-            build: AppInfo.osBuild
-        )
-        guard applicable else { return }
-
-        refreshKernelExploitStatus()
-        maybeAutoRunKernelExploit()
-    }
-
-    private func maybeAutoRunKernelExploit() {
-        guard !kernelExploitRunning,
-              !exploitStatus.isSuccess,
-              !exploitStatus.isFailed,
-              !autoRunAttempted else { return }
-        autoRunAttempted = true
-        log("app: starting kernel exploit automatically")
-        runKernelExploitIfNeeded()
-    }
-
-    private func refreshKernelExploitStatus() {
-        guard !kernelExploitRunning else { return }
-
-        if LocalVPNPairingManager.shared.isDevicePaired {
-            exploitStatus = .success(method: LocalVPNPairingManager.shared.activeMethodDescription)
-            return
-        }
-
-        if KernelExploit.requiresSandboxEscape {
-            if KernelExploit.hasSandboxAccess() {
-                if !exploitStatus.isSuccess {
-                    exploitStatus = .success(method: "kexploit")
-                    log("app: existing sandbox access is still active; skipping kernel exploit")
-                }
-            } else if exploitStatus.isSuccess {
-                exploitStatus = .notStarted
-                log("app: sandbox access is no longer active")
-            }
-        }
-    }
-
-    func runKernelExploitIfNeeded() {
-        refreshKernelExploitStatus()
-        guard !kernelExploitRunning,
-              !exploitStatus.isSuccess,
-              !exploitStatus.isFailed else { return }
-        kernelExploitRunning = true
-        exploitStatus = .notStarted
-        log("app: running kernel exploit on background...")
-        DispatchQueue.global(qos: .userInitiated).async {
-            let ok = KernelExploit.run()
-            DispatchQueue.main.async {
-                self.kernelExploitRunning = false
-                if ok {
-                    self.exploitStatus = .success(method: "kexploit")
-                    if KernelExploit.requiresSandboxEscape {
-                        log("app: kernel exploit success — sandbox access verified")
-                    } else {
-                        log("app: kernel exploit success — kernel access active")
-                    }
-                } else if LocalVPNPairingManager.shared.isDevicePaired {
-                    self.exploitStatus = .success(
-                        method: LocalVPNPairingManager.shared.activeMethodDescription
-                    )
-                    log("app: fallback to LocalDevVPN + Pairing (3105) active")
-                } else {
-                    self.exploitStatus = .failed(method: "kexploit", code: -1)
-                    log("app: kernel exploit failed — relaunch the app or enable LocalDevVPN + Pairing")
                 }
             }
         }
