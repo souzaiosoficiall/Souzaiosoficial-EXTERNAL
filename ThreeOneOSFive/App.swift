@@ -6,7 +6,6 @@ import Combine
 struct ThreeOneOSFiveApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var pairingManager = LocalVPNPairingManager.shared
-    @StateObject private var licenseManager = LicenseManager()
     @StateObject private var patchDraftCoordinator = PatchDraftCoordinator()
     @StateObject private var fileOperationCoordinator = FileOperationCoordinator()
     @StateObject private var patchStore = PatchProjectStore()
@@ -38,7 +37,6 @@ struct ThreeOneOSFiveApp: App {
         WindowGroup {
             ZStack {
                 Group {
-                    if licenseManager.isActive {
                         ContentView()
                             .environmentObject(appState)
                             .environmentObject(pairingManager)
@@ -46,12 +44,10 @@ struct ThreeOneOSFiveApp: App {
                             .environmentObject(fileOperationCoordinator)
                             .environmentObject(patchStore)
                             .environmentObject(repositoryStore)
-                            .environmentObject(licenseManager)
                             .environment(\.appLanguage, language)
                             .environment(\.locale, language.locale)
                             .environment(\.layoutDirection, language.layoutDirection)
                     } else {
-                        LicenseActivationView(manager: licenseManager)
                             .environmentObject(appState)
                     }
                 }
@@ -100,7 +96,6 @@ struct ThreeOneOSFiveApp: App {
                 )
             }
             .onAppear {
-                licenseManager.beginLaunchSession()
                 PatchProjectLibrary.seedBundledPatchesIfNeeded()
                 if !showOnboarding {
                     appState.detectSupport()
@@ -109,7 +104,6 @@ struct ThreeOneOSFiveApp: App {
             }
             .onChange(of: scenePhase) { phase in
                 guard phase == .active, !showOnboarding else { return }
-                licenseManager.beginLaunchSession()
                 PatchProjectLibrary.seedBundledPatchesIfNeeded()
                 pairingManager.refreshLiveHeartbeatAndTunnel()
                 appState.detectSupport()
