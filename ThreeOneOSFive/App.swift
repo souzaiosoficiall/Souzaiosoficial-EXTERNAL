@@ -130,19 +130,6 @@ struct ThreeOneOSFiveApp: App {
         }
     }
 }
-            }
-            .onChange(of: scenePhase) { phase in
-                guard phase == .active else { return }
-                licenseManager.beginLaunchSession()
-                appState.detectSupport()
-            }
-            .onOpenURL { url in
-                patchDraftCoordinator.presentImport(url)
-            }
-            .preferredColorScheme(.dark)
-        }
-    }
-}
 
 class AppState: ObservableObject {
     @Published var exploitStatus: ExploitStatus = .notStarted
@@ -207,43 +194,29 @@ class AppState: ObservableObject {
     private func refreshKernelExploitStatus() {
         guard !kernelExploitRunning else { return }
 
-        // iOS < 26: kernel R/W success persists (no sandbox probe)
-        // iOS >= 26: verify full sandbox escape is still active
         if KernelExploit.requiresSandboxEscape {
             if KernelExploit.hasSandboxAccess() {
-                if !exploitStatus.isSuccess {
-                    exploitStatus = .success(method: "kexploit")
-                    log("app: existing sandbox access is still active; skipping kernel exploit")
-                }
-            } else if exploitStatus.isSuccess {
-                exploitStatus = .notStarted
-                log("app: sandbox access is no longer active")
+                exploitStatus = .success(method: "Sandbox escape")
             }
+        } else if KernelExploit.hasKernelReadWrite() {
+            exploitStatus = .success(method: "Kernel R/W")
         }
     }
 
     func runKernelExploitIfNeeded() {
-        refreshKernelExploitStatus()
-        guard !kernelExploitRunning,
-              !exploitStatus.isSuccess,
-              !exploitStatus.isFailed else { return }
+        guard !kernelExploitRunning else { return }
         kernelExploitRunning = true
-        exploitStatus = .notStarted
-        log("app: running kernel exploit on background...")
+        exploitStatus = .running
+
         DispatchQueue.global(qos: .userInitiated).async {
-            let ok = KernelExploit.run()
+            let result = KernelExploit.run()
             DispatchQueue.main.async {
                 self.kernelExploitRunning = false
-                if ok {
-                    self.exploitStatus = .success(method: "kexploit")
-                    if KernelExploit.requiresSandboxEscape {
-                        log("app: kernel exploit success — sandbox access verified")
-                    } else {
-                        log("app: kernel exploit success — kernel access active")
-                    }
-                } else {
-                    self.exploitStatus = .failed(method: "kexploit", code: -1)
-                    log("app: kernel exploit failed — relaunch the app before retrying")
+                switch result {
+                case .success(let method):
+                    self.exploitStatus = .success(method: method)
+                case .failure(let error):
+                    self.exploitStatus = .failed(error)
                 }
             }
         }
