@@ -36,7 +36,7 @@ jobs:
           set -euxo pipefail
           xcodebuild \
             -project "ThreeOneOSFive.xcodeproj" \
-            -target "Souzaiosoficial EXTERNAL" \
+            -target "3105" \
             -configuration "Release" \
             -sdk "iphoneos" \
             SYMROOT="$(pwd)/build" \
@@ -51,7 +51,7 @@ jobs:
       - name: Package unsigned IPA (ad-hoc sign with TrollStore entitlements)
         run: |
           set -euxo pipefail
-          APP="build/Release-iphoneos/Souzaiosoficial EXTERNAL.app"
+          APP="build/Release-iphoneos/3105.app"
           [ -d "$APP" ]
           VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist" | tr -d '\r')"
           BUILDNO="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist" | tr -d '\r')"
@@ -76,10 +76,10 @@ jobs:
 
           rm -rf Payload && mkdir Payload
           cp -R "$APP" Payload/
-          codesign --remove-signature "Payload/Souzaiosoficial EXTERNAL.app" 2>/dev/null || true
-          codesign --force --sign - --entitlements Entitlements.plist "Payload/Souzaiosoficial EXTERNAL.app"
+          codesign --remove-signature "Payload/3105.app" 2>/dev/null || true
+          codesign --force --sign - --entitlements Entitlements.plist "Payload/3105.app"
           echo "=== embedded entitlements ==="
-          codesign -d --entitlements :- "Payload/Souzaiosoficial EXTERNAL.app" || true
+          codesign -d --entitlements :- "Payload/3105.app" || true
 
           IPA="Souzaiosoficial-v${VERSION}-b${BUILDNO}.ipa"
           echo "IPA_NAME=$IPA" >> "$GITHUB_ENV"
