@@ -194,29 +194,43 @@ class AppState: ObservableObject {
     private func refreshKernelExploitStatus() {
         guard !kernelExploitRunning else { return }
 
+        // iOS < 26: kernel R/W success persists (no sandbox probe)
+        // iOS >= 26: verify full sandbox escape is still active
         if KernelExploit.requiresSandboxEscape {
             if KernelExploit.hasSandboxAccess() {
-                exploitStatus = .success(method: "Sandbox escape")
+                if !exploitStatus.isSuccess {
+                    exploitStatus = .success(method: "kexploit")
+                    log("app: existing sandbox access is still active; skipping kernel exploit")
+                }
+            } else if exploitStatus.isSuccess {
+                exploitStatus = .notStarted
+                log("app: sandbox access is no longer active")
             }
-        } else if KernelExploit.hasKernelReadWrite() {
-            exploitStatus = .success(method: "Kernel R/W")
         }
     }
 
     func runKernelExploitIfNeeded() {
-        guard !kernelExploitRunning else { return }
+        refreshKernelExploitStatus()
+        guard !kernelExploitRunning,
+              !exploitStatus.isSuccess,
+              !exploitStatus.isFailed else { return }
         kernelExploitRunning = true
-        exploitStatus = .running
-
+        exploitStatus = .notStarted
+        log("app: running kernel exploit on background...")
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = KernelExploit.run()
+            let ok = KernelExploit.run()
             DispatchQueue.main.async {
                 self.kernelExploitRunning = false
-                switch result {
-                case .success(let method):
-                    self.exploitStatus = .success(method: method)
-                case .failure(let error):
-                    self.exploitStatus = .failed(error)
+                if ok {
+                    self.exploitStatus = .success(method: "kexploit")
+                    if KernelExploit.requiresSandboxEscape {
+                        log("app: kernel exploit success — sandbox access verified")
+                    } else {
+                        log("app: kernel exploit success — kernel access active")
+                    }
+                } else {
+                    self.exploitStatus = .failed(method: "kexploit", code: -1)
+                    log("app: kernel exploit failed — relaunch the app before retrying")
                 }
             }
         }
