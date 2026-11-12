@@ -1,0 +1,105 @@
+name: Build & Release IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-ipa
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build unsigned IPA (macOS runner)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select newest installed Xcode
+        run: |
+          set -euxo pipefail
+          ls /Applications | grep -i '^Xcode' || true
+          SELECTED="$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)"
+          echo "Using $SELECTED"
+          sudo xcode-select -s "$SELECTED"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos || true
+
+      - name: Build Release (unsigned, iphoneos)
+        run: |
+          set -euxo pipefail
+          xcodebuild \
+            -project "ThreeOneOSFive.xcodeproj" \
+            -target "3105" \
+            -configuration "Release" \
+            -sdk "iphoneos" \
+            SYMROOT="$(pwd)/build" \
+            OBJROOT="$(pwd)/build/Intermediates" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build
+
+      - name: Package unsigned IPA (ad-hoc sign with TrollStore entitlements)
+        run: |
+          set -euxo pipefail
+          APP="build/Release-iphoneos/3105.app"
+          [ -d "$APP" ]
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist" | tr -d '\r')"
+          BUILDNO="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist" | tr -d '\r')"
+          echo "version=$VERSION build=$BUILDNO"
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "APP_BUILD=$BUILDNO" >> "$GITHUB_ENV"
+
+          cat > Entitlements.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>com.apple.private.mobile-container-manager.allowed</key>
+              <true/>
+              <key>com.apple.private.security.no-container</key>
+              <true/>
+              <key>com.apple.private.security.no-sandbox</key>
+              <true/>
+          </dict>
+          </plist>
+          PLIST
+
+          rm -rf Payload && mkdir Payload
+          cp -R "$APP" Payload/
+          codesign --remove-signature "Payload/3105.app" 2>/dev/null || true
+          codesign --force --sign - --entitlements Entitlements.plist "Payload/3105.app"
+          echo "=== embedded entitlements ==="
+          codesign -d --entitlements :- "Payload/3105.app" || true
+
+          IPA="3105-v${VERSION}-b${BUILDNO}.ipa"
+          echo "IPA_NAME=$IPA" >> "$GITHUB_ENV"
+          rm -f "$IPA"
+          zip -qry "$IPA" Payload
+          ls -lh "$IPA"
+          unzip -l "$IPA"
+
+      - name: Create GitHub Release and upload IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          TAG="v${APP_VERSION}"
+          TITLE="3105 v${APP_VERSION} (build ${APP_BUILD})"
+          NOTES="$(printf 'Ad-hoc signed IPA with embedded TrollStore entitlements (mobile-container-manager, no-sandbox, no-container).\n\n• TrollStore install (recommended): full app-container access — real patching works.\n• ESign / SideStore / Sideloadly / AltStore: installs fine, but container-level patching needs device access.\n\nNew in 2.2: appearance & accent colors, app themes, dialer/keypad themes (.3105pass), interactive plist editor, lock-screen footnote & supervised mode, AirLift pairing with diagnostics + PIN pairing, worse_query app-group access (iOS 26.6.2-27.2+). Includes all 2.0 fixes: patch alerts shown, .3105 import routing, pairing notification ordering.')"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$IPA_NAME" --clobber
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --target "$GITHUB_SHA"
+          else
+            gh release create "$TAG" "$IPA_NAME" --title "$TITLE" --notes "$NOTES" --target "$GITHUB_SHA"
+          fi
+          gh release view "$TAG" --json tagName,url,assets -q '.'
