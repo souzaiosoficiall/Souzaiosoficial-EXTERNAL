@@ -33,7 +33,7 @@ struct ContentView: View {
         } else if arguments.contains("--simulate-search-tab") {
             initialTab = AppSection.search.rawValue
         } else {
-            initialTab = AppSection.home.rawValue
+            initialTab = AppSection.souzaiosoficial.rawValue
         }
         _tabNavigation = State(initialValue: AppTabNavigationState(selectedTab: initialTab))
         _showSettings = State(
@@ -53,6 +53,7 @@ struct ContentView: View {
             }
         }
         .tint(AppTheme.accent)
+        .preferredColorScheme(.dark)
         .imageScale(.small)
         .environment(\.layoutDirection, language.layoutDirection)
         .onChange(of: patchDraftCoordinator.request?.id) { requestID in
