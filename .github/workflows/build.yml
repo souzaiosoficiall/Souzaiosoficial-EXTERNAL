@@ -1,4 +1,4 @@
-name: Build & Release IPA
+name: Build unsigned Souzaiosoficial EXTERNAL IPA
 
 on:
   push:

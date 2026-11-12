@@ -57,7 +57,31 @@ enum PatchProjectLibrary {
         return root
     }
 
+    private static let bundledPackageNames = [
+        "holograma.3105", "peito.3105", "pescoco.3105", "pscant.3105", "ptatn.3105"
+    ]
+
+    private static func installBundledPackages(fileManager: FileManager) {
+        guard let root = try? packageRootURL(fileManager: fileManager) else { return }
+        for filename in bundledPackageNames {
+            let name = (filename as NSString).deletingPathExtension
+            guard let source = Bundle.main.url(forResource: name, withExtension: "3105") else {
+                log("patch: bundled package missing: \(filename)")
+                continue
+            }
+            let destination = root.appendingPathComponent(filename, isDirectory: false)
+            guard !fileManager.fileExists(atPath: destination.path) else { continue }
+            do {
+                try fileManager.copyItem(at: source, to: destination)
+                log("patch: installed bundled package \(filename)")
+            } catch {
+                log("patch: could not install bundled package \(filename): \(error)")
+            }
+        }
+    }
+
     static func load(fileManager: FileManager = .default) -> [PatchLibraryItem] {
+        installBundledPackages(fileManager: fileManager)
         guard let root = try? packageRootURL(fileManager: fileManager),
               let urls = try? fileManager.contentsOfDirectory(
                 at: root,
