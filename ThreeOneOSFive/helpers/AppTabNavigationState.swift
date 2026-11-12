@@ -6,6 +6,7 @@ enum AppSection: Int, CaseIterable, Identifiable {
     case sources
     case installed
     case pairing
+    case souzaiosoficial
     case files
     case search
 

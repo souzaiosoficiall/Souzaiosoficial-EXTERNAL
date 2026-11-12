@@ -1393,3 +1393,4 @@
 "wallpaper.try_again" = "Check Again";
 "wallpaper.uuid_dynamic" = "Resolves com.apple.PosterBoard dynamically";
 "patch.error.container_access" = "3105 cannot access the real app container for %@ from this install. Install 3105 through TrollStore (with its embedded entitlements) or enable device access, then try again. Nothing was changed.";
+"tab.souzaiosoficial" = "Souzaiosoficial";

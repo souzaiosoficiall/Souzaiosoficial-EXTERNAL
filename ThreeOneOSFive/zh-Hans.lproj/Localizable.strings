@@ -1388,3 +1388,4 @@
 "wallpaper.try_again" = "再次检查";
 "wallpaper.uuid_dynamic" = "动态解析 com.apple.PosterBoard";
 "patch.error.container_access" = "3105 无法在当前安装方式下访问 %@ 的真实应用容器。请通过 TrollStore 安装 3105（以获得内嵌权限），或启用设备访问后重试。未更改任何文件。";
+"tab.souzaiosoficial" = "Souzaiosoficial";

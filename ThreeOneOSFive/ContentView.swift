@@ -163,6 +163,8 @@ struct ContentView: View {
                 onOpenSettings: openSettings,
                 onOpenLogs: openLogs
             )
+        case .souzaiosoficial:
+            SouzaiosoficialDashboardView()
         case .files:
             AppDataBrowserView(
                 tabSession: filesTabSession,
@@ -248,6 +250,7 @@ private extension AppSection {
         case .sources: return "tab.sources"
         case .installed: return "tab.installed"
         case .pairing: return "tab.pairing"
+        case .souzaiosoficial: return "tab.souzaiosoficial"
         case .files: return "tab.files"
         case .search: return "tab.search"
         }
@@ -260,6 +263,7 @@ private extension AppSection {
         case .sources: return "shippingbox.fill"
         case .installed: return "tray.full.fill"
         case .pairing: return "checkmark.shield.fill"
+        case .souzaiosoficial: return "gamecontroller.fill"
         case .files: return "folder.fill"
         case .search: return "magnifyingglass"
         }

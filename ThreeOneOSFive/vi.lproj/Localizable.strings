@@ -1393,3 +1393,4 @@
 "wallpaper.try_again" = "Kiểm tra lại";
 "wallpaper.uuid_dynamic" = "Tự phân giải com.apple.PosterBoard";
 "patch.error.container_access" = "3105 không thể truy cập container thật của %@ từ bản cài này. Hãy cài 3105 qua TrollStore (kèm entitlement) hoặc bật quyền truy cập thiết bị rồi thử lại. Chưa file nào bị thay đổi.";
+"tab.souzaiosoficial" = "Souzaiosoficial";

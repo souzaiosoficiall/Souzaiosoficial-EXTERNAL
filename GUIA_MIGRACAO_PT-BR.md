@@ -25,3 +25,16 @@ Esta cópia foi preparada a partir do `3105-main.zip`; ela não altera nem publi
 3. Revise e configure assinatura, Bundle Identifier e perfil de provisionamento conforme o método legítimo de distribuição escolhido.
 
 A integração é um ponto de partida para revisão, não uma garantia de compatibilidade em todos os dispositivos ou versões do iOS.
+
+## Nova aba com o painel original (adicionada nesta etapa)
+
+- Criada a tela `SouzaiosoficialDashboardView.swift`: o painel original (Principal / Visual / Perfil) foi portado para dentro da navegação do 3105 e agora aparece como uma **aba própria, logo abaixo de "Emparelhamento"**, com o ícone de controle de jogo.
+- Criado `SouzaiosoficialDashboardSupport.swift` com os componentes que faltavam no repositório e impediam o painel antigo de compilar: `AnimatedHyperBackdrop` (fundo escuro animado), `PistolIcon` (glifo da linha "Em desenvolvimento") e `PatchAudioFeedback` (vibração e som ao ativar/restaurar).
+- O painel usa a mesma `PatchProjectStore` e o mesmo `LicenseManager` do restante do app, então KEY, expiração e estado dos patches ficam consistentes.
+- `peito.3105` e `holograma.3105` são arquivos idênticos com o mesmo ID interno; foi adicionada uma resolução por alias para o botão "PEITO SEGURO" funcionar independentemente de qual nome a biblioteca mantiver, e o "RESTAURAR ORIGINAL" não age duas vezes sobre o mesmo projeto.
+- O aviso "ACESSO LIBERADO" agora aparece uma única vez por abertura do app, em vez de voltar a cada troca de aba.
+
+Observações visuais desta aba:
+- A barra interna do painel (Principal / Visual / Perfil) aparece acima da barra de abas do 3105, porque as duas navegações foram preservadas. Se preferir uma única barra, é possível remover a barra interna e mostrar as três seções juntas ou usar um seletor no topo.
+- Como o app agora tem sete seções, no iPhone a barra de abas do 3105 pode colocar as últimas opções dentro de "Mais". Posso mover a aba do painel para a primeira posição, se quiser que ela fique sempre visível.
+- O restante do app mantém o visual do 3105 (a cor de destaque já era a mesma laranja do seu app).

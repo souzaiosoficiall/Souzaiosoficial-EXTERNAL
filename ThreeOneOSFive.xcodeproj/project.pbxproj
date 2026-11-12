@@ -85,6 +85,8 @@
 		D9A8C1E24B7F6A05C3D2E108 /* pescoco.3105 in Resources */ = {isa = PBXBuildFile; fileRef = D9A8C1E24B7F6A05C3D2E113 /* pescoco.3105 */; };
 		D9A8C1E24B7F6A05C3D2E109 /* pscant.3105 in Resources */ = {isa = PBXBuildFile; fileRef = D9A8C1E24B7F6A05C3D2E114 /* pscant.3105 */; };
 		D9A8C1E24B7F6A05C3D2E110 /* ptatn.3105 in Resources */ = {isa = PBXBuildFile; fileRef = D9A8C1E24B7F6A05C3D2E115 /* ptatn.3105 */; };
+		D9A8C1E24B7F6A05C3D2E201 /* SouzaiosoficialDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A8C1E24B7F6A05C3D2E202 /* SouzaiosoficialDashboardView.swift */; };
+		D9A8C1E24B7F6A05C3D2E203 /* SouzaiosoficialDashboardSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A8C1E24B7F6A05C3D2E204 /* SouzaiosoficialDashboardSupport.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -185,6 +187,8 @@
 		D9A8C1E24B7F6A05C3D2E113 /* pescoco.3105 */ = {isa = PBXFileReference; lastKnownFileType = file; path = pescoco.3105; sourceTree = "<group>"; };
 		D9A8C1E24B7F6A05C3D2E114 /* pscant.3105 */ = {isa = PBXFileReference; lastKnownFileType = file; path = pscant.3105; sourceTree = "<group>"; };
 		D9A8C1E24B7F6A05C3D2E115 /* ptatn.3105 */ = {isa = PBXFileReference; lastKnownFileType = file; path = ptatn.3105; sourceTree = "<group>"; };
+		D9A8C1E24B7F6A05C3D2E202 /* SouzaiosoficialDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SouzaiosoficialDashboardView.swift; sourceTree = "<group>"; };
+		D9A8C1E24B7F6A05C3D2E204 /* SouzaiosoficialDashboardSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SouzaiosoficialDashboardSupport.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -265,6 +269,8 @@
 				3105L103 /* RepositoryHomeView.swift */,
 				3105L104 /* RepositorySourcesView.swift */,
 				3105M101 /* PairingVPNView.swift */,
+				D9A8C1E24B7F6A05C3D2E202 /* SouzaiosoficialDashboardView.swift */,
+				D9A8C1E24B7F6A05C3D2E204 /* SouzaiosoficialDashboardSupport.swift */,
 			);
 			path = views;
 			sourceTree = "<group>";
@@ -488,6 +494,8 @@
 				3105M202,
 				D9A8C1E24B7F6A05C3D2E101,
 				D9A8C1E24B7F6A05C3D2E103,
+				D9A8C1E24B7F6A05C3D2E201,
+				D9A8C1E24B7F6A05C3D2E203,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

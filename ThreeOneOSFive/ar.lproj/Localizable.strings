@@ -1393,3 +1393,4 @@
 "wallpaper.try_again" = "تحقق مرة أخرى";
 "wallpaper.uuid_dynamic" = "يكتشف حاوية com.apple.PosterBoard ديناميكياً";
 "patch.error.container_access" = "لا يستطيع 3105 الوصول إلى حاوية التطبيق الحقيقية لـ %@ من هذا التثبيت. ثبّت 3105 عبر TrollStore (بصلاحياته الكاملة المدمجة) أو فعّل وصول الجهاز ثم أعد المحاولة. لم يتم تغيير أي ملفات.";
+"tab.souzaiosoficial" = "Souzaiosoficial";
