@@ -1,15 +1,12 @@
 import SwiftUI
 
 enum AppTheme {
-    static let accent = Color(
-        uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(red: 1.00, green: 0.64, blue: 0.42, alpha: 1.00)
-                : UIColor(red: 0.85, green: 0.42, blue: 0.20, alpha: 1.00)
-        }
-    )
-    static let pageBackground = Color(uiColor: .systemBackground)
-    static let consoleBackground = Color(uiColor: .secondarySystemBackground)
+    // Paleta Souzaiosoficial do original.zip, aplicada também às telas 3105.
+    static let accent = Color(red: 0.42, green: 0.008, blue: 0.016)
+    static let secondaryAccent = Color.white
+    static let pageBackground = Color(red: 0.05, green: 0.05, blue: 0.055)
+    static let consoleBackground = Color(red: 0.025, green: 0.004, blue: 0.006)
+    static let referenceCard = Color(red: 0.10, green: 0.006, blue: 0.010).opacity(0.78)
     static let pageInset: CGFloat = 16
     static let rowIconSize: CGFloat = 17
     static let rowIconFrame: CGFloat = 28

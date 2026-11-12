@@ -1,127 +1,105 @@
 //
 //  SouzaiosoficialDashboardSupport.swift
-//  Componentes visuais e de feedback usados pelo painel Souzaiosoficial EXTERNAL.
-//  Estas declarações não existiam no repositório original, por isso o arquivo
-//  antigo de tela nunca chegou a compilar dentro do target.
+//  Componentes visuais do original.zip preservados junto aos serviços 3105.
 //
 import AudioToolbox
 import SwiftUI
 import UIKit
 
-/// Fundo escuro animado com brilhos na cor de destaque do app.
+/// Fundo vermelho, branco e preto copiado do DesignSystem do original.zip.
 struct AnimatedHyperBackdrop: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private let glowRadius: CGFloat = 300
-
     var body: some View {
         ZStack {
-            Color.black
             LinearGradient(
-                colors: [Color(white: 0.07), Color.black],
+                colors: [
+                    Color(red: 0.06, green: 0.06, blue: 0.07),
+                    Color(red: 0.04, green: 0.04, blue: 0.045),
+                    Color(red: 0.02, green: 0.02, blue: 0.025)
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
-            if reduceMotion {
-                staticGlow
-            } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: false)) { context in
-                    animatedGlow(at: context.date.timeIntervalSinceReferenceDate)
-                }
-            }
+
+            RadialGradient(
+                colors: [
+                    AppTheme.accent.opacity(0.18),
+                    AppTheme.accent.opacity(0.05),
+                    .clear
+                ],
+                center: .topTrailing,
+                startRadius: 20,
+                endRadius: 320
+            )
+
+            RadialGradient(
+                colors: [Color.white.opacity(0.04), .clear],
+                center: .bottomLeading,
+                startRadius: 10,
+                endRadius: 280
+            )
         }
         .ignoresSafeArea()
-        .accessibilityHidden(true)
-    }
-
-    private var glowGradient: RadialGradient {
-        RadialGradient(
-            colors: [AppTheme.accent.opacity(0.26), Color.clear],
-            center: .center,
-            startRadius: 0,
-            endRadius: glowRadius
-        )
-    }
-
-    private var staticGlow: some View {
-        ZStack {
-            glowGradient
-                .frame(width: glowRadius * 2, height: glowRadius * 2)
-                .offset(x: -40, y: -160)
-            glowGradient
-                .frame(width: glowRadius * 1.6, height: glowRadius * 1.6)
-                .offset(x: 120, y: 220)
-        }
-    }
-
-    private func animatedGlow(at time: TimeInterval) -> some View {
-        let x1 = sin(time * 0.18) * 110
-        let y1 = cos(time * 0.13) * 80
-        let x2 = cos(time * 0.21) * -130
-        let y2 = sin(time * 0.16) * 110
-        return ZStack {
-            glowGradient
-                .frame(width: glowRadius * 2, height: glowRadius * 2)
-                .offset(x: CGFloat(x1), y: CGFloat(y1 - 160))
-            glowGradient
-                .frame(width: glowRadius * 1.6, height: glowRadius * 1.6)
-                .offset(x: CGFloat(x2 + 120), y: CGFloat(y2 + 220))
-        }
     }
 }
 
-/// Glifo simples de pistola usado na linha "Em desenvolvimento".
+/// Ícone vetorial de pistola do DesignSystem do original.zip.
 struct PistolIcon: View {
-    var size: CGFloat = 20
+    var size: CGFloat = 18
     var color: Color = AppTheme.accent
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            // Corpo e cano
-            Path { path in
-                path.move(to: point(0.04, 0.26))
-                path.addLine(to: point(0.96, 0.26))
-                path.addLine(to: point(0.96, 0.44))
-                path.addLine(to: point(0.46, 0.44))
-                path.addLine(to: point(0.46, 0.56))
-                path.addLine(to: point(0.34, 0.56))
-                path.addLine(to: point(0.34, 0.44))
-                path.addLine(to: point(0.04, 0.44))
-                path.closeSubpath()
-            }
-            .fill(color)
+        Canvas { context, canvasSize in
+            let w = canvasSize.width
+            let h = canvasSize.height
 
-            // Empunhadura
-            Path { path in
-                path.move(to: point(0.30, 0.48))
-                path.addLine(to: point(0.46, 0.48))
-                path.addLine(to: point(0.38, 0.96))
-                path.addLine(to: point(0.20, 0.96))
-                path.closeSubpath()
-            }
-            .fill(color.opacity(0.85))
+            func x(_ value: CGFloat) -> CGFloat { value / 24 * w }
+            func y(_ value: CGFloat) -> CGFloat { value / 24 * h }
 
-            // Guarda-mato / gatilho
-            Path { path in
-                path.move(to: point(0.46, 0.48))
-                path.addLine(to: point(0.58, 0.48))
-                path.addLine(to: point(0.54, 0.62))
-                path.addLine(to: point(0.46, 0.56))
-                path.closeSubpath()
-            }
-            .fill(color.opacity(0.60))
+            var path = Path()
+            path.move(to: CGPoint(x: x(2), y: y(8)))
+            path.addLine(to: CGPoint(x: x(18), y: y(8)))
+            path.addLine(to: CGPoint(x: x(18), y: y(7)))
+            path.addLine(to: CGPoint(x: x(22), y: y(7)))
+            path.addLine(to: CGPoint(x: x(22), y: y(11)))
+            path.addLine(to: CGPoint(x: x(18), y: y(11)))
+            path.addLine(to: CGPoint(x: x(18), y: y(12)))
+            path.addLine(to: CGPoint(x: x(12), y: y(12)))
+            path.addLine(to: CGPoint(x: x(11), y: y(13)))
+            path.addLine(to: CGPoint(x: x(10), y: y(20)))
+            path.addLine(to: CGPoint(x: x(6), y: y(20)))
+            path.addLine(to: CGPoint(x: x(7), y: y(13)))
+            path.addLine(to: CGPoint(x: x(6), y: y(12)))
+            path.addLine(to: CGPoint(x: x(2), y: y(12)))
+            path.closeSubpath()
+            context.fill(path, with: .color(color))
+
+            var sight = Path()
+            sight.addRoundedRect(
+                in: CGRect(x: x(20.2), y: y(5.5), width: x(1.4), height: y(1.8)),
+                cornerSize: CGSize(width: x(0.3), height: y(0.3))
+            )
+            context.fill(sight, with: .color(color))
+
+            var trigger = Path()
+            trigger.addArc(
+                center: CGPoint(x: x(9.5), y: y(13.5)),
+                radius: x(2.2),
+                startAngle: .degrees(-10),
+                endAngle: .degrees(110),
+                clockwise: false
+            )
+            context.stroke(
+                trigger,
+                with: .color(color),
+                style: StrokeStyle(lineWidth: max(1.2, w * 0.06), lineCap: .round)
+            )
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
     }
-
-    /// Converte uma coordenada relativa (0...1) para o tamanho do ícone.
-    private func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-        CGPoint(x: x * size, y: y * size)
-    }
 }
 
-/// Feedback tátil e sonoro das ações de ativar e restaurar patch.
+/// Mantém o feedback tátil e sonoro associado às ações de patch.
 enum PatchAudioFeedback {
     static func bypassActivated() {
         play(soundID: 1306, kind: .success)
