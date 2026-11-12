@@ -43,7 +43,19 @@ struct FeatureVisibility: Equatable {
     }
 
     var visibleSections: [AppSection] {
-        AppSection.allCases.filter(isVisible)
+        // Prioriza as telas solicitadas no tab bar compacto do iPhone. Com mais
+        // de cinco itens, SwiftUI coloca os restantes automaticamente em "Mais".
+        let preferredOrder: [AppSection] = [
+            .home,
+            .pairing,
+            .souzaiosoficial,
+            .installed,
+            .new,
+            .sources,
+            .files,
+            .search
+        ]
+        return preferredOrder.filter(isVisible)
     }
 
     func isVisible(_ section: AppSection) -> Bool {
