@@ -1,7 +1,23 @@
 import SwiftUI
 import UIKit
 
+/// Interface principal do aplicativo: usa o layout do original.zip e mantém
+/// os serviços e telas 3105 disponíveis através do painel de ferramentas.
 struct ContentView: View {
+    @EnvironmentObject private var patchStore: PatchProjectStore
+    @EnvironmentObject private var repositoryStore: PackageRepositoryStore
+
+    var body: some View {
+        SouzaiosoficialDashboardView()
+            .tint(AppTheme.accent)
+            .preferredColorScheme(.dark)
+            .patchStorePresentation(patchStore)
+            .repositoryStorePresentation(repositoryStore, patchStore: patchStore)
+    }
+}
+
+/// Navegação 3105 original, preservada como conjunto de ferramentas secundário.
+struct ThreeOneOSFiveToolsView: View {
     @Environment(\.appLanguage) private var language
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @EnvironmentObject private var patchDraftCoordinator: PatchDraftCoordinator
@@ -33,7 +49,7 @@ struct ContentView: View {
         } else if arguments.contains("--simulate-search-tab") {
             initialTab = AppSection.search.rawValue
         } else {
-            initialTab = AppSection.souzaiosoficial.rawValue
+            initialTab = AppSection.home.rawValue
         }
         _tabNavigation = State(initialValue: AppTabNavigationState(selectedTab: initialTab))
         _showSettings = State(
@@ -164,8 +180,6 @@ struct ContentView: View {
                 onOpenSettings: openSettings,
                 onOpenLogs: openLogs
             )
-        case .souzaiosoficial:
-            SouzaiosoficialDashboardView()
         case .files:
             AppDataBrowserView(
                 tabSession: filesTabSession,
@@ -251,7 +265,6 @@ private extension AppSection {
         case .sources: return "tab.sources"
         case .installed: return "tab.installed"
         case .pairing: return "tab.pairing"
-        case .souzaiosoficial: return "tab.souzaiosoficial"
         case .files: return "tab.files"
         case .search: return "tab.search"
         }
@@ -264,7 +277,6 @@ private extension AppSection {
         case .sources: return "shippingbox.fill"
         case .installed: return "tray.full.fill"
         case .pairing: return "checkmark.shield.fill"
-        case .souzaiosoficial: return "gamecontroller.fill"
         case .files: return "folder.fill"
         case .search: return "magnifyingglass"
         }

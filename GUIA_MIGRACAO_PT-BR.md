@@ -1,40 +1,21 @@
-# Integração Souzaiosoficial EXTERNAL sobre 3105
+# Projeto Souzaiosoficial EXTERNAL sobre 3105
 
-Esta cópia foi preparada a partir do `3105-main.zip`; ela não altera nem publica no GitHub.
+## Estrutura desta integração
 
-## O que foi integrado
+O `ContentView` do `original.zip` — o layout escuro com as abas Principal, Visual e Perfil — agora é a interface raiz do aplicativo. O `ContentView` da base 3105 não fica mais como tela inicial; sua navegação e suas ferramentas foram preservadas como uma tela secundária aberta pelo botão **FERRAMENTAS 3105** dentro de Perfil.
 
-- Fluxo atual de ativação/licença do repositório GitHub (`LicenseManager` e `LicenseActivationView`), com o app 3105 bloqueado até a licença ficar ativa.
-- Ícone do app e nome exibido “Souzaiosoficial EXTERNAL”. O target do Xcode continua sendo `3105` para preservar o processo de build.
-- Os cinco arquivos `.3105` originais como recursos do app; na primeira carga, o aplicativo copia os arquivos para a biblioteca de patches em Application Support, sem sobrescrever pacotes que já estejam instalados.
-- Código-base, telas, serviços de pareamento, marketplace, idiomas e melhorias de compatibilidade da base 3105 foram mantidos.
+A aba customizada de baixo ganhou **Emparelhar**, que abre o `PairingVPNView` do 3105. Assim, a navegação principal mantém o desenho original e o fluxo de Emparelhamento continua disponível sem usar a barra de abas padrão do 3105. A tela de ferramentas 3105 ainda oferece Home, Novidades, Fontes, Instalados, Arquivos (conforme modo de desenvolvedor) e Busca.
 
-## Pontos que precisam de validação no Mac/iPhone
+O painel original foi adaptado para compartilhar o `PatchProjectStore` e o `LicenseManager` globais do 3105, em vez de criar uma segunda store. Também contém a resolução por alias para `peito.3105`/`holograma.3105`, que são pacotes idênticos com o mesmo ID interno. Os componentes visuais ausentes no projeto original foram incluídos em `SouzaiosoficialDashboardSupport.swift`.
 
-- O ambiente usado para esta preparação não tem Xcode, então não foi possível compilar o projeto nem testar em um dispositivo. Faça primeiro um build local no Xcode para iOS e, depois, teste ativação, pareamento e importação/aplicação dos pacotes no aparelho desejado.
-- O `LicenseManager` copiado do GitHub usa validação pelo serviço `https://souzakeys.duckdns.org`; não é o modo local descrito no README do ZIP original. Verifique se esse servidor é o comportamento pretendido e se continuará disponível. As chamadas atuais enviam a chave de licença e o identificador do dispositivo como parâmetros de uma requisição GET; revise o endpoint e os registros do servidor antes de distribuir.
-- O workflow foi mantido no modo simples do seu repositório: compila um IPA unsigned e armazena como artefato da execução. Ele não cria releases, não assina o app e não acrescenta entitlements privados automaticamente.
-- `holograma.3105` e `peito.3105` são byte-a-byte idênticos e têm o mesmo ID interno de pacote; a biblioteca 3105 agrupa itens pelo ID, então eles podem aparecer como um único pacote.
-- O arquivo `migration-reference/GitHub-EXTERNAL-Dashboard.unintegrated.swift` foi preservado apenas para referência. Ele não estava incluído no target Xcode do repositório e chama símbolos auxiliares ausentes (`AnimatedHyperBackdrop`, `PatchAudioFeedback` e `PatchUnlockPrompt`), por isso não o conectei à navegação nesta primeira integração. A interface principal continua sendo a navegação nova do 3105.
-- Mantive o Bundle Identifier que já estava na base (`com.apple.mobile.MobileHouseArrest`) e não alterei entitlements nem assinatura. Confirme que essa identidade é intencional antes de distribuir ou assinar a aplicação.
+## Licença e distribuição
 
-## Abrir e compilar
+A tela de ativação continua sendo apresentada pelo fluxo do `LicenseManager` quando não há licença ativa. Se uma licença já foi validada, a atualização pode reutilizar o estado guardado no Keychain e não pedir a chave novamente. O aviso visual **ACESSO LIBERADO** segue dentro da interface original.
 
-1. Descompacte o ZIP no Mac e abra `ThreeOneOSFive.xcodeproj` no Xcode.
-2. Selecione o target `3105`, um destino iOS compatível e faça **Product → Build**.
-3. Revise e configure assinatura, Bundle Identifier e perfil de provisionamento conforme o método legítimo de distribuição escolhido.
+O `LicenseManager` usa o endpoint `https://souzakeys.duckdns.org`; as requisições GET enviam a chave e o identificador do dispositivo. Confirme que esse endpoint é seu e que aceita esse comportamento antes de distribuir o aplicativo.
 
-A integração é um ponto de partida para revisão, não uma garantia de compatibilidade em todos os dispositivos ou versões do iOS.
+O Bundle Identifier mantido é `com.apple.mobile.MobileHouseArrest`, como na base. Revise-o e configure assinatura/provisionamento antes de distribuição. O workflow atual gera uma IPA unsigned; ele não publica Releases nem assina o aplicativo automaticamente.
 
-## Nova aba com o painel original (adicionada nesta etapa)
+## Validação
 
-- Criada a tela `SouzaiosoficialDashboardView.swift`: o painel original (Principal / Visual / Perfil) foi portado para dentro da navegação do 3105 e agora aparece como uma **aba própria, logo abaixo de "Emparelhamento"**, com o ícone de controle de jogo.
-- Criado `SouzaiosoficialDashboardSupport.swift` com os componentes que faltavam no repositório e impediam o painel antigo de compilar: `AnimatedHyperBackdrop` (fundo escuro animado), `PistolIcon` (glifo da linha "Em desenvolvimento") e `PatchAudioFeedback` (vibração e som ao ativar/restaurar).
-- O painel usa a mesma `PatchProjectStore` e o mesmo `LicenseManager` do restante do app, então KEY, expiração e estado dos patches ficam consistentes.
-- `peito.3105` e `holograma.3105` são arquivos idênticos com o mesmo ID interno; foi adicionada uma resolução por alias para o botão "PEITO SEGURO" funcionar independentemente de qual nome a biblioteca mantiver, e o "RESTAURAR ORIGINAL" não age duas vezes sobre o mesmo projeto.
-- O aviso "ACESSO LIBERADO" agora aparece uma única vez por abertura do app, em vez de voltar a cada troca de aba.
-
-Observações visuais desta aba:
-- A barra interna do painel (Principal / Visual / Perfil) aparece acima da barra de abas do 3105, porque as duas navegações foram preservadas. Se preferir uma única barra, é possível remover a barra interna e mostrar as três seções juntas ou usar um seletor no topo.
-- Como o app agora tem sete seções, no iPhone a barra de abas do 3105 pode colocar as últimas opções dentro de "Mais". Posso mover a aba do painel para a primeira posição, se quiser que ela fique sempre visível.
-- O restante do app mantém o visual do 3105 (a cor de destaque já era a mesma laranja do seu app).
+Os arquivos foram verificados estaticamente e a referência antiga à aba duplicada foi removida. Esta preparação não tem Xcode, portanto não confirma uma compilação iOS nem comportamento no aparelho. Compile no Xcode ou execute o workflow GitHub Actions e teste Principal, Visual, Perfil, Pairing, aplicação/restauração dos patches e Ferramentas 3105 no dispositivo.

@@ -6,7 +6,6 @@ enum AppSection: Int, CaseIterable, Identifiable {
     case sources
     case installed
     case pairing
-    case souzaiosoficial
     case files
     case search
 
@@ -43,12 +42,10 @@ struct FeatureVisibility: Equatable {
     }
 
     var visibleSections: [AppSection] {
-        // Prioriza as telas solicitadas no tab bar compacto do iPhone. Com mais
-        // de cinco itens, SwiftUI coloca os restantes automaticamente em "Mais".
+        // A navegação 3105 é secundária; a tela principal agora usa o layout original.
         let preferredOrder: [AppSection] = [
             .home,
             .pairing,
-            .souzaiosoficial,
             .installed,
             .new,
             .sources,
@@ -73,7 +70,7 @@ struct AppTabNavigationState: Equatable {
     private(set) var filesTabs: FilesTabSession
 
     init(
-        selectedTab: Int = AppSection.souzaiosoficial.rawValue,
+        selectedTab: Int = AppSection.home.rawValue,
         filesNavigationPath: [FileBrowserDestination] = []
     ) {
         self.selectedTab = selectedTab

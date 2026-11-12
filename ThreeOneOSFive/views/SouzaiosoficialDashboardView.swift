@@ -15,6 +15,8 @@ struct SouzaiosoficialDashboardView: View {
 
     @State private var showSettings = false
     @State private var showCleaner = false
+    @State private var showLogs = false
+    @State private var show3105Tools = false
     @State private var showLicenseNotice = false
     @EnvironmentObject private var patchStore: PatchProjectStore
 
@@ -43,8 +45,13 @@ struct SouzaiosoficialDashboardView: View {
                         homeTab
                     } else if selectedTab == 1 {
                         visualTab
-                    } else {
+                    } else if selectedTab == 2 {
                         profileTab
+                    } else {
+                        PairingVPNView(
+                            onOpenSettings: { showSettings = true },
+                            onOpenLogs: { showLogs = true }
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -75,6 +82,12 @@ struct SouzaiosoficialDashboardView: View {
         }
         .sheet(isPresented: $showCleaner) {
             CleanerView()
+        }
+        .sheet(isPresented: $showLogs) {
+            LogView()
+        }
+        .fullScreenCover(isPresented: $show3105Tools) {
+            ThreeOneOSFiveToolsView()
         }
         .onAppear {
             syncPatchStates()
@@ -170,12 +183,49 @@ struct SouzaiosoficialDashboardView: View {
                     .padding(.top, 2)
 
                 profileInfoCard
+                tools3105Button
                 developerSection
             }
             .padding(.horizontal, 18)
             .padding(.top, 12)
             .padding(.bottom, 100)
         }
+    }
+
+    private var tools3105Button: some View {
+        Button {
+            show3105Tools = true
+        } label: {
+            HStack(spacing: 13) {
+                Image(systemName: "square.grid.2x2.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(AppTheme.accent)
+                    .frame(width: 40, height: 40)
+                    .background(AppTheme.accent.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("FERRAMENTAS 3105")
+                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+                    Text("Fontes, instalados, arquivos e busca")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.48))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(AppTheme.accent)
+            }
+            .padding(14)
+            .background(Color.black.opacity(0.48), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(AppTheme.accent.opacity(0.30), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var profileInfoCard: some View {
@@ -618,6 +668,7 @@ struct SouzaiosoficialDashboardView: View {
             tabButton(icon: "house.fill", title: "Principal", index: 0)
             tabButton(icon: "eye.fill", title: "Visual", index: 1)
             tabButton(icon: "person.fill", title: "Perfil", index: 2)
+            tabButton(icon: "checkmark.shield.fill", title: "Emparelhar", index: 3)
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 6)
