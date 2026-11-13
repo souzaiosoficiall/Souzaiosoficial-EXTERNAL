@@ -21,6 +21,8 @@ struct PatchRule: Codable, Identifiable, Hashable {
         self.replacementData = replacementData
     }
 
+    /// A zero-byte file is a valid replacement; the filename records that the
+    /// user explicitly supplied a payload for this path-only draft rule.
     var hasReplacement: Bool {
         !replacementFilename.isEmpty
     }
@@ -177,7 +179,6 @@ enum PatchPackageError: Error, Equatable {
     case invalidProject
     case keychainFailed
     case targetAppUnavailable(String)
-    case containerAccessUnavailable(String)
     case symbolicLinkUnsupported
     case targetOccupied(String)
     case projectAlreadyApplied
@@ -205,7 +206,6 @@ extension PatchPackageError: LocalizedError {
         case .invalidProject: return "patch.error.invalid_project"
         case .keychainFailed: return "patch.error.keychain"
         case .targetAppUnavailable: return "patch.error.app_unavailable"
-        case .containerAccessUnavailable: return "patch.error.container_access"
         case .targetOccupied: return "patch.error.target_occupied"
         case .projectAlreadyApplied: return "patch.error.already_applied"
         case .restoreTargetsChanged: return "patch.error.restore_targets_changed"
@@ -231,7 +231,7 @@ extension PatchPackageError: LocalizedError {
 
     var localizationArgument: String? {
         switch self {
-        case .targetAppUnavailable(let bundleID), .targetOccupied(let bundleID), .containerAccessUnavailable(let bundleID):
+        case .targetAppUnavailable(let bundleID), .targetOccupied(let bundleID):
             return bundleID
         case .restoreTargetsChanged(let paths):
             return paths.joined(separator: "\n")
@@ -278,7 +278,6 @@ enum PatchPathValidator {
                           || (65...90).contains(value)
                           || (97...122).contains(value)
                           || value == 45
-                          || value == 95
                   }),
                   component.first != "-",
                   component.last != "-"
@@ -290,12 +289,10 @@ enum PatchPathValidator {
     }
 
     static func canonicalRelativePath(_ rawValue: String) throws -> String {
-        var value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        while value.hasPrefix("/") {
-            value.removeFirst()
-        }
+        let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty,
               value.utf8.count <= PatchPackageLimits.maximumPathBytes,
+              !value.hasPrefix("/"),
               !value.contains("\\"),
               !value.contains("//"),
               !value.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
@@ -319,11 +316,9 @@ enum PatchPathValidator {
         let path = try canonicalRelativePath(relativePath)
         let root = canonicalFileURL(containerRoot)
 
-        let parentPath = root.deletingLastPathComponent().path
-        let isValidAppContainer = (parentPath == applicationRoot || parentPath.hasSuffix("/Data/Application"))
-            && UUID(uuidString: root.lastPathComponent) != nil
-
-        guard isValidAppContainer else {
+        guard root.deletingLastPathComponent().path == applicationRoot,
+              UUID(uuidString: root.lastPathComponent) != nil
+        else {
             throw PatchPackageError.unsafeTargetPath
         }
 

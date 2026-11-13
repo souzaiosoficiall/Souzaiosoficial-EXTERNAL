@@ -4,21 +4,19 @@ import UniformTypeIdentifiers
 
 private enum PatchPackagePickerPolicy {
     static let packageType = UTType(filenameExtension: "3105") ?? .data
-    static let allowedContentTypes: [UTType] = [.item, .data, packageType]
+    static let allowedContentTypes: [UTType] = [packageType, .data]
     static let copiesSelectedDocument = true
 }
 
 private enum WallpaperPackagePickerPolicy {
     static let packageType = UTType(filenameExtension: "tendies") ?? .data
-    static let allowedContentTypes: [UTType] = [.item, .data, packageType]
+    static let allowedContentTypes: [UTType] = [packageType, .data]
 }
 
 struct PatchProjectsView: View {
     @Environment(\.appLanguage) private var language
     @EnvironmentObject private var draftCoordinator: PatchDraftCoordinator
     @EnvironmentObject private var store: PatchProjectStore
-    @ObservedObject private var dialerStore = DialerThemeStore.shared
-    @State private var showDialerImporter = false
     @AppStorage(FeatureVisibility.cleanerStorageKey) private var cleanerEnabled = true
     @State private var showCreate = false
     @State private var showImporter = false
@@ -69,11 +67,11 @@ struct PatchProjectsView: View {
     }
 
     private var hasLocalContent: Bool {
-        !store.items.isEmpty || !wallpaperPackages.isEmpty || !dialerStore.packages.isEmpty
+        !store.items.isEmpty || !wallpaperPackages.isEmpty
     }
 
     private var hasSearchResults: Bool {
-        !filteredItems.isEmpty || !filteredWallpaperPackages.isEmpty || !dialerStore.packages.isEmpty
+        !filteredItems.isEmpty || !filteredWallpaperPackages.isEmpty
     }
 
     init(
@@ -119,38 +117,6 @@ struct PatchProjectsView: View {
                                 }
                             }
                         }
-                        if !dialerStore.packages.isEmpty {
-                            Section(language.text("dialer.title")) {
-                                ForEach(dialerStore.packages) { pkg in
-                                    NavigationLink {
-                                        DialerThemeDetailView(package: pkg)
-                                    } label: {
-                                        HStack(spacing: 12) {
-                                            AppRowIcon(systemName: "circle.grid.3x3.fill")
-                                            VStack(alignment: .leading, spacing: 3) {
-                                                Text(pkg.name)
-                                                    .font(.body.weight(.semibold))
-                                                    .foregroundStyle(.primary)
-                                                Text(language.text("installed.kind.dialer"))
-                                                    .font(.caption2.weight(.semibold))
-                                                    .foregroundStyle(AppTheme.accent)
-                                                Text(pkg.author)
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                        }
-                                        .padding(.vertical, 4)
-                                    }
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        Button(role: .destructive) {
-                                            dialerStore.delete(pkg)
-                                        } label: {
-                                            Label(language.text("common.delete"), systemImage: "trash")
-                                        }
-                                    }
-                                }
-                            }
-                        }
                         if !filteredWallpaperPackages.isEmpty {
                             Section(language.text("tab.wallpapers")) {
                                 ForEach(filteredWallpaperPackages) { package in
@@ -179,25 +145,9 @@ struct PatchProjectsView: View {
                             }
                         }
                     }
-                    Section(language.text("repository.utilities")) {
-                        if cleanerEnabled {
+                    if cleanerEnabled {
+                        Section(language.text("repository.utilities")) {
                             cleanerRow
-                        }
-                        NavigationLink {
-                            SystemFeaturesView()
-                        } label: {
-                            HStack(spacing: 12) {
-                                AppRowIcon(systemName: "lock.iphone")
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(language.text("system_feature.source_name"))
-                                        .font(.body.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                    Text(language.text("system_feature.footnote.summary"))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .padding(.vertical, 2)
                         }
                     }
                 }
@@ -224,14 +174,6 @@ struct PatchProjectsView: View {
                             Label(
                                 language.text("wallpaper.import"),
                                 systemImage: "photo.badge.plus"
-                            )
-                        }
-                        Button {
-                            showDialerImporter = true
-                        } label: {
-                            Label(
-                                language.text("dialer.import"),
-                                systemImage: "circle.grid.3x3.fill"
                             )
                         }
                     } label: {
@@ -277,23 +219,6 @@ struct PatchProjectsView: View {
             }
             .sheet(isPresented: $showCleaner) {
                 CleanerView()
-            }
-            .sheet(isPresented: $showDialerImporter) {
-                FileDocumentPicker(
-                    allowedContentTypes: [.item, .data],
-                    copiesSelectedDocument: true,
-                    allowsMultipleSelection: false,
-                    onSelection: { result in
-                        showDialerImporter = false
-                        if case .success(let urls) = result, let url = urls.first {
-                            _ = try? dialerStore.importPackage(from: url)
-                        }
-                    },
-                    onCancel: {
-                        showDialerImporter = false
-                    }
-                )
-                .ignoresSafeArea()
             }
             .sheet(item: $draftCoordinator.request) { request in
                 PatchProjectEditorView(
@@ -417,7 +342,7 @@ struct PatchProjectsView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.forward")
+                Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
@@ -711,22 +636,12 @@ struct PatchUnlockView: View {
 }
 
 private struct PatchStorePresentationModifier: ViewModifier {
-    @Environment(\.appLanguage) private var language
     @ObservedObject var store: PatchProjectStore
 
     func body(content: Content) -> some View {
         content
             .sheet(item: $store.passwordRequest, onDismiss: store.cancelUnlock) { request in
                 PatchUnlockView(store: store, request: request)
-            }
-            // Present every create/import/update/delete result — previously these
-            // alerts were never shown, so failures looked like silent no-ops.
-            .alert(item: $store.alert) { alert in
-                Alert(
-                    title: Text(language.text(alert.titleKey)),
-                    message: Text(alert.message(language: language)),
-                    dismissButton: .default(Text(language.text("common.ok")))
-                )
             }
     }
 }
@@ -854,7 +769,7 @@ private struct PatchProjectDetailView: View {
                                 HStack(spacing: 10) {
                                     ruleSummary(rule)
                                     Spacer(minLength: 8)
-                                    Image(systemName: "chevron.forward")
+                                    Image(systemName: "chevron.right")
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(.tertiary)
                                 }

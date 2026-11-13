@@ -5,7 +5,6 @@ enum AppSection: Int, CaseIterable, Identifiable {
     case new
     case sources
     case installed
-    case pairing
     case files
     case search
 
@@ -14,10 +13,12 @@ enum AppSection: Int, CaseIterable, Identifiable {
 
 enum WallpaperFeatureSupportPolicy {
     static func isSupported(major: Int) -> Bool {
-        if ExploitSupportPolicy.isPairingAndLocalVPNEnabled, major >= 16 {
+        switch major {
+        case 17, 18, 26, 27:
             return true
+        default:
+            return false
         }
-        return major >= 17
     }
 }
 

@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct PatchProjectEditorView: View {
     @Environment(\.appLanguage) private var language
@@ -33,11 +32,7 @@ struct PatchProjectEditorView: View {
         _name = State(initialValue: existingProject?.name ?? initialDraft?.name ?? "")
         _author = State(initialValue: existingProject?.author ?? "")
         _isPrivate = State(initialValue: existingProject?.isPrivate ?? false)
-        _bundleID = State(
-            initialValue: existingProject?.bundleIdentifiers.first
-                ?? initialDraft?.bundleIdentifiers.first
-                ?? ""
-        )
+        _bundleID = State(initialValue: initialDraft?.bundleIdentifiers.first ?? "")
         _bundleIdentifiers = State(
             initialValue: existingProject?.bundleIdentifiers
                 ?? initialDraft?.bundleIdentifiers
@@ -81,7 +76,8 @@ struct PatchProjectEditorView: View {
                     }
                 }
 
-                Section {
+                if existingProject != nil || !rules.isEmpty || !directories.isEmpty {
+                    Section {
                     ForEach(rules) { rule in
                         Button {
                             ruleEditor = PatchRuleEditorContext(rule: rule)
@@ -89,7 +85,7 @@ struct PatchProjectEditorView: View {
                             HStack(spacing: 10) {
                                 ruleRow(rule)
                                 Spacer(minLength: 8)
-                                Image(systemName: "chevron.forward")
+                                Image(systemName: "chevron.right")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.tertiary)
                             }
@@ -100,31 +96,24 @@ struct PatchProjectEditorView: View {
                     }
                     .onDelete { rules.remove(atOffsets: $0) }
 
-                    Button {
-                        let defaultBundle = normalizeBundleID(bundleID)
-                        let templateRule: PatchRule? = defaultBundle.isEmpty
-                            ? nil
-                            : PatchRule(
-                                bundleID: defaultBundle,
-                                relativePath: "",
-                                replacementFilename: "",
-                                replacementData: Data()
-                            )
-                        ruleEditor = PatchRuleEditorContext(rule: templateRule, isNew: true)
-                    } label: {
-                        Label(language.text("patch.add_rule"), systemImage: "plus.circle.fill")
-                    }
-
-                    if !directories.isEmpty {
-                        LabeledContent(language.text("patch.folders")) {
-                            Text("\(directories.count)")
-                                .foregroundStyle(.secondary)
+                        if existingProject != nil {
+                            Button {
+                                ruleEditor = PatchRuleEditorContext(rule: nil)
+                            } label: {
+                                Label(language.text("patch.add_rule"), systemImage: "plus.circle.fill")
+                            }
                         }
+                        if !directories.isEmpty {
+                            LabeledContent(language.text("patch.folders")) {
+                                Text("\(directories.count)")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } header: {
+                        Text(language.text("patch.captured_content"))
+                    } footer: {
+                        Text(language.text("patch.workspace_edit_footer"))
                     }
-                } header: {
-                    Text(language.text("patch.rules"))
-                } footer: {
-                    Text(language.text("patch.workspace_edit_footer"))
                 }
 
                 Section {
@@ -180,13 +169,10 @@ struct PatchProjectEditorView: View {
             }
             .sheet(item: $ruleEditor) { context in
                 PatchRuleEditorView(rule: context.rule) { savedRule in
-                    if !context.isNew, let index = rules.firstIndex(where: { $0.id == savedRule.id }) {
+                    if let index = rules.firstIndex(where: { $0.id == savedRule.id }) {
                         rules[index] = savedRule
                     } else {
                         rules.append(savedRule)
-                    }
-                    if bundleID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        bundleID = savedRule.bundleID
                     }
                 }
             }
@@ -215,22 +201,8 @@ struct PatchProjectEditorView: View {
         .padding(.vertical, 3)
     }
 
-    private func normalizeBundleID(_ raw: String) -> String {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return "" }
-        if let valid = try? PatchPathValidator.canonicalBundleIdentifier(trimmed) {
-            return valid
-        }
-        let alnum = trimmed.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }.map(String.init).joined()
-        guard !alnum.isEmpty else { return "com.apple.springboard" }
-        return "com.app.\(alnum.lowercased())"
-    }
-
     private func save() {
-        var projectName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if projectName.isEmpty, let firstRule = rules.first {
-            projectName = firstRule.replacementFilename
-        }
+        let projectName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let projectAuthor = author.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !projectName.isEmpty, projectName.utf8.count <= 120 else {
             validationMessageKey = "patch.error.invalid_project"
@@ -249,24 +221,19 @@ struct PatchProjectEditorView: View {
             return
         }
         if existingProject == nil, initialDraft == nil {
-            let candidateBundle = normalizeBundleID(bundleID)
-            if !candidateBundle.isEmpty {
-                bundleID = candidateBundle
-                var allBundles = [candidateBundle]
-                for r in rules where !allBundles.contains(r.bundleID) {
-                    allBundles.append(r.bundleID)
+            do {
+                let canonical = try PatchPathValidator.canonicalBundleIdentifier(bundleID)
+                guard canonical == bundleID.trimmingCharacters(in: .whitespacesAndNewlines) else {
+                    throw PatchPackageError.invalidBundleIdentifier
                 }
-                bundleIdentifiers = allBundles
-            } else if !rules.isEmpty {
-                var allBundles: [String] = []
-                for r in rules where !allBundles.contains(r.bundleID) {
-                    allBundles.append(r.bundleID)
-                }
-                bundleIdentifiers = allBundles
-                bundleID = allBundles.first ?? ""
-            } else {
-                bundleID = "com.apple.springboard"
-                bundleIdentifiers = ["com.apple.springboard"]
+                bundleID = canonical
+                bundleIdentifiers = [canonical]
+            } catch let error as PatchPackageError {
+                validationMessageKey = error.localizationKey
+                return
+            } catch {
+                validationMessageKey = "patch.error.invalid_bundle"
+                return
             }
         }
         guard !bundleIdentifiers.isEmpty || !rules.isEmpty || !directories.isEmpty else {
@@ -278,17 +245,10 @@ struct PatchProjectEditorView: View {
             return
         }
         validationMessageKey = "patch.error.replacement_required"
-        ruleEditor = PatchRuleEditorContext(rule: incompleteRule, isNew: false)
+        ruleEditor = PatchRuleEditorContext(rule: incompleteRule)
     }
 
     private func saveCompleteProject(named projectName: String) {
-        var mergedBundles = bundleIdentifiers
-        for r in rules where !mergedBundles.contains(r.bundleID) {
-            mergedBundles.append(r.bundleID)
-        }
-        for d in directories where !mergedBundles.contains(d.bundleID) {
-            mergedBundles.append(d.bundleID)
-        }
         let project = PatchProject(
             id: existingProject?.id ?? UUID(),
             name: projectName,
@@ -296,7 +256,7 @@ struct PatchProjectEditorView: View {
             isPrivate: isPrivate,
             createdAt: existingProject?.createdAt ?? Date(),
             updatedAt: Date(),
-            bundleIdentifiers: mergedBundles,
+            bundleIdentifiers: bundleIdentifiers,
             directories: directories,
             rules: rules
         )
@@ -315,7 +275,6 @@ struct PatchProjectEditorView: View {
 private struct PatchRuleEditorContext: Identifiable {
     let id = UUID()
     let rule: PatchRule?
-    var isNew: Bool = false
 }
 
 struct PatchRuleEditorView: View {
@@ -349,7 +308,7 @@ struct PatchRuleEditorView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .font(.body.monospaced())
-                    TextField("Library/Preferences/file.plist", text: $relativePath)
+                    TextField("Library/path/file", text: $relativePath)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .font(.body.monospaced())
@@ -379,7 +338,7 @@ struct PatchRuleEditorView: View {
                                     .foregroundStyle(replacementFilename.isEmpty ? Color.orange : Color.secondary)
                             }
                             Spacer()
-                            Image(systemName: "chevron.forward")
+                            Image(systemName: "chevron.right")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.tertiary)
                         }
@@ -425,8 +384,6 @@ struct PatchRuleEditorView: View {
             }
             .sheet(isPresented: $showFileImporter) {
                 FileDocumentPicker(
-                    allowedContentTypes: [.item, .data],
-                    copiesSelectedDocument: true,
                     allowsMultipleSelection: false,
                     onSelection: { result in
                         showFileImporter = false
@@ -445,47 +402,43 @@ struct PatchRuleEditorView: View {
         guard case .success(let urls) = result, let url = urls.first else { return }
         isImporting = true
         validationMessageKey = nil
-        let hasAccess = url.startAccessingSecurityScopedResource()
-        let immediateData = try? Data(contentsOf: url)
-        let fileName = url.lastPathComponent
-        if hasAccess { url.stopAccessingSecurityScopedResource() }
-
-        if let immediateData {
-            replacementData = immediateData
-            replacementFilename = fileName
-            if relativePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                relativePath = "Documents/\(fileName)"
+        DispatchQueue.global(qos: .userInitiated).async {
+            let hasAccess = url.startAccessingSecurityScopedResource()
+            defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let values = try url.resourceValues(
+                    forKeys: [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey]
+                )
+                guard values.isDirectory != true,
+                      values.isSymbolicLink != true,
+                      values.isRegularFile == true else {
+                    throw PatchPackageError.invalidProject
+                }
+                let importedData = try Data(contentsOf: url, options: .mappedIfSafe)
+                DispatchQueue.main.async {
+                    replacementData = importedData
+                    replacementFilename = url.lastPathComponent
+                    isImporting = false
+                }
+            } catch let error as PatchPackageError {
+                DispatchQueue.main.async {
+                    validationMessageKey = error.localizationKey
+                    isImporting = false
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    validationMessageKey = "patch.error.invalid_project"
+                    isImporting = false
+                }
             }
-            isImporting = false
-        } else {
-            validationMessageKey = "patch.error.invalid_project"
-            isImporting = false
         }
     }
 
     private func save() {
         do {
-            var rawBundle = bundleID.trimmingCharacters(in: .whitespacesAndNewlines)
-            if rawBundle.isEmpty {
-                rawBundle = "com.apple.springboard"
-            } else if !rawBundle.contains(".") {
-                let clean = rawBundle.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }.map(String.init).joined()
-                rawBundle = "com.app.\(clean.isEmpty ? "target" : clean.lowercased())"
-            }
-            let canonicalBundle = try PatchPathValidator.canonicalBundleIdentifier(rawBundle)
-
-            var rawRelPath = relativePath.trimmingCharacters(in: .whitespacesAndNewlines)
-            while rawRelPath.hasPrefix("/") {
-                rawRelPath.removeFirst()
-            }
-            if rawRelPath.isEmpty && !replacementFilename.isEmpty {
-                rawRelPath = "Documents/\(replacementFilename)"
-            }
-            let canonicalPath = try PatchPathValidator.canonicalRelativePath(rawRelPath)
-            guard !replacementFilename.isEmpty else {
-                validationMessageKey = "patch.error.replacement_required"
-                return
-            }
+            let canonicalBundle = try PatchPathValidator.canonicalBundleIdentifier(bundleID)
+            let canonicalPath = try PatchPathValidator.canonicalRelativePath(relativePath)
+            guard !replacementFilename.isEmpty else { throw PatchPackageError.invalidProject }
             onSave(PatchRule(
                 id: originalRule?.id ?? UUID(),
                 bundleID: canonicalBundle,

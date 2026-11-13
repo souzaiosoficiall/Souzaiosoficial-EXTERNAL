@@ -57,6 +57,38 @@ enum PatchProjectLibrary {
         return root
     }
 
+
+    static func installBundledPackagesIfNeeded(
+        bundle: Bundle = .main,
+        fileManager: FileManager = .default
+    ) {
+        guard let root = try? packageRootURL(fileManager: fileManager) else {
+            return
+        }
+
+        // Xcode may place folder resources either under Patches or at the
+        // application bundle root; check both layouts without duplicating files.
+        let nestedURLs = bundle.urls(forResourcesWithExtension: "3105", subdirectory: "Patches") ?? []
+        let flattenedURLs = bundle.urls(forResourcesWithExtension: "3105", subdirectory: nil) ?? []
+        var seen = Set<String>()
+        let bundledURLs = (nestedURLs + flattenedURLs).filter {
+            seen.insert($0.standardizedFileURL.path).inserted
+        }
+
+        for sourceURL in bundledURLs {
+            let destinationURL = root.appendingPathComponent(sourceURL.lastPathComponent)
+            guard !fileManager.fileExists(atPath: destinationURL.path) else { continue }
+
+            do {
+                let data = try Data(contentsOf: sourceURL, options: .mappedIfSafe)
+                _ = try PatchPackageCodec.inspect(data)
+                try data.write(to: destinationURL, options: [.atomic, .completeFileProtection])
+            } catch {
+                log("patch: skipped bundled package \(sourceURL.lastPathComponent): \(error)")
+            }
+        }
+    }
+
     static func load(fileManager: FileManager = .default) -> [PatchLibraryItem] {
         guard let root = try? packageRootURL(fileManager: fileManager),
               let urls = try? fileManager.contentsOfDirectory(
@@ -71,8 +103,8 @@ enum PatchProjectLibrary {
                 let data = try readPackage(at: url)
                 let summary = try PatchPackageCodec.inspect(data)
                 let decoded: DecodedPatchPackage?
-                if let contentKey = (try? PatchKeyStore.load(for: summary)) ?? nil {
-                    decoded = try? PatchPackageCodec.decode(data, contentKey: contentKey)
+                if let contentKey = try PatchKeyStore.load(for: summary) {
+                    decoded = try PatchPackageCodec.decode(data, contentKey: contentKey)
                 } else if summary.isPasswordProtected {
                     decoded = nil
                 } else {
@@ -101,7 +133,7 @@ enum PatchProjectLibrary {
                         do {
                             _ = try PatchWorkspaceService.ensureWorkspace(for: project)
                         } catch {
-                            log("patch: workspace unavailable for \(project.id.uuidString): \(error)")
+                            log("patch: workspace unavailable for \(project.id.uuidString)")
                         }
                     } else {
                         try? PatchWorkspaceService.deleteWorkspace(
@@ -112,7 +144,7 @@ enum PatchProjectLibrary {
                 }
                 byID[summary.packageID] = item
             } catch {
-                log("patch: skipped invalid local package \(url.lastPathComponent): \(error)")
+                log("patch: skipped invalid local package \(url.lastPathComponent)")
             }
         }
         return byID.values.sorted {
@@ -121,15 +153,13 @@ enum PatchProjectLibrary {
     }
 
     static func readPackage(at url: URL) throws -> Data {
-        if let data = try? Data(contentsOf: url, options: .mappedIfSafe), !data.isEmpty {
-            return data
-        }
         let values = try url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey])
         guard values.isDirectory != true,
-              values.isSymbolicLink != true else {
+              values.isSymbolicLink != true,
+              values.isRegularFile == true else {
             throw PatchPackageError.invalidProject
         }
-        return try Data(contentsOf: url)
+        return try Data(contentsOf: url, options: .mappedIfSafe)
     }
 
     static func save(
@@ -152,7 +182,7 @@ enum PatchProjectLibrary {
             }
             destination = candidate
         }
-        try data.write(to: destination, options: .atomic)
+        try data.write(to: destination, options: [.atomic, .completeFileProtection])
         return destination
     }
 
@@ -163,7 +193,7 @@ enum PatchProjectLibrary {
         let root = try authorCopiesRootURL(fileManager: fileManager)
         try Data().write(
             to: root.appendingPathComponent(packageID.uuidString),
-            options: .atomic
+            options: [.atomic, .completeFileProtection]
         )
     }
 
@@ -212,6 +242,16 @@ enum PatchProjectLibrary {
             packageID: summary.packageID,
             fileManager: fileManager
         )
+        if let occupiedPath = overlappingTargetPath(
+            in: decoded.project,
+            excludingPackageID: summary.packageID,
+            fileManager: fileManager
+        ) {
+            if decoded.project.isPrivate, !authorCopy {
+                throw PatchPackageError.privateOperationFailed
+            }
+            throw PatchPackageError.targetOccupied(occupiedPath)
+        }
         let previousData = try existingURL.map { try readPackage(at: $0) }
         let originURL = try originFileURL(
             packageID: summary.packageID,
@@ -223,7 +263,6 @@ enum PatchProjectLibrary {
             if let origin {
                 try saveOrigin(origin, to: originURL)
             }
-            try? PatchKeyStore.store(decoded.contentKey, for: summary)
             savedURL = try save(
                 data: data,
                 projectName: decoded.project.name,
@@ -255,7 +294,7 @@ enum PatchProjectLibrary {
             if let previousData, let existingURL {
                 try? previousData.write(
                     to: existingURL,
-                    options: .atomic
+                    options: [.atomic, .completeFileProtection]
                 )
             } else if let savedURL, fileManager.fileExists(atPath: savedURL.path) {
                 try? fileManager.removeItem(at: savedURL)
@@ -263,7 +302,7 @@ enum PatchProjectLibrary {
             if let previousOriginData {
                 try? previousOriginData.write(
                     to: originURL,
-                    options: .atomic
+                    options: [.atomic, .completeFileProtection]
                 )
             } else if origin != nil, fileManager.fileExists(atPath: originURL.path) {
                 try? fileManager.removeItem(at: originURL)
@@ -336,12 +375,12 @@ enum PatchProjectLibrary {
     }
 
     private static func sanitizedFilename(_ rawName: String) -> String {
-        let forbidden = CharacterSet(charactersIn: "/:\\?%*|\"<>").union(.controlCharacters)
-        let scalars = rawName.unicodeScalars.map { forbidden.contains($0) ? "-" : String($0) }
-        let result = scalars.joined()
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_ "))
+        let scalars = rawName.unicodeScalars.map { allowed.contains($0) ? Character(String($0)) : "-" }
+        let result = String(scalars)
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .prefix(80)
-        return result.isEmpty ? "Patch-\(UUID().uuidString.prefix(6))" : String(result)
+        return result.isEmpty ? "Patch" : String(result)
     }
 
     private static func authorCopiesRootURL(
@@ -398,7 +437,7 @@ enum PatchProjectLibrary {
         encoder.outputFormat = .binary
         try encoder.encode(origin).write(
             to: url,
-            options: .atomic
+            options: [.atomic, .completeFileProtection]
         )
     }
 }

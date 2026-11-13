@@ -229,6 +229,17 @@ final class PackageRepositoryStore: ObservableObject {
         _ record: RepositoryPackageRecord,
         using patchStore: PatchProjectStore
     ) {
+        let compatibility = PackageCompatibilityEvaluator.evaluate(
+            record.package.supportedOS,
+            major: AppInfo.versionTuple.major,
+            minor: AppInfo.versionTuple.minor,
+            patch: AppInfo.versionTuple.patch,
+            build: AppInfo.osBuild
+        )
+        guard compatibility == .compatible else {
+            present(.incompatiblePackage)
+            return
+        }
         guard !downloadingPackageKeys.contains(record.id) else {
             return
         }
@@ -241,26 +252,35 @@ final class PackageRepositoryStore: ObservableObject {
                 downloadStartedAtByPackageKey[record.id] = nil
             }
             do {
-                let ext = record.package.downloadURL.pathExtension.lowercased()
-                let isTendies = record.package.kind == .wallpaper || ext == "tendies"
-                let isDialer = ext == "3105pass"
-
-                if isDialer {
-                    let packageURL = try await PackageRepositoryNetworkClient
-                        .downloadWallpaper(record.package)
-                    defer { try? FileManager.default.removeItem(at: packageURL) }
-                    _ = try DialerThemeStore.shared.importPackage(
-                        from: packageURL,
-                        displayName: record.package.name,
-                        author: record.package.author,
-                        repositoryIdentity: record.repositoryIdentity
+                switch record.package.kind {
+                case .patch:
+                    let data = try await PackageRepositoryNetworkClient.download(
+                        record.package
                     )
-                    alert = RepositoryStoreAlert(
-                        titleKey: "common.done",
-                        messageKey: "dialer.import_done"
+                    let summary = try PatchPackageCodec.inspect(data)
+                    resolutionIndex.record(
+                        summary.packageID,
+                        sourceURL: record.sourceURL,
+                        packageIdentifier: record.package.identifier
                     )
-                    log("repository: imported dialer theme \(record.package.identifier)")
-                } else if isTendies {
+                    persistResolutionIndex()
+                    let origin = PatchPackageOrigin(
+                        repositoryName: record.sourceName,
+                        repositoryURL: record.sourceURL,
+                        packageIdentifier: record.package.identifier
+                    )
+                    guard patchStore.importPackage(
+                        data: data,
+                        password: record.package.sharedPassword,
+                        origin: origin
+                    ) else {
+                        throw PackageRepositoryError.importUnavailable
+                    }
+                    log(
+                        "repository: handed off \(record.package.identifier) " +
+                            "to patch import"
+                    )
+                case .wallpaper:
                     let packageURL = try await PackageRepositoryNetworkClient
                         .downloadWallpaper(record.package)
                     defer { try? FileManager.default.removeItem(at: packageURL) }
@@ -275,59 +295,10 @@ final class PackageRepositoryStore: ObservableObject {
                         titleKey: "wallpaper.import_done_title",
                         messageKey: "repository.wallpaper_imported"
                     )
-                    log("repository: imported wallpaper \(record.package.identifier)")
-                } else {
-                    let rawData = try await PackageRepositoryNetworkClient.download(
-                        record.package
+                    log(
+                        "repository: imported wallpaper " +
+                            record.package.identifier
                     )
-                    let packageData: Data
-                    let summary: PatchPackageSummary
-                    if let inspected = try? PatchPackageCodec.inspect(rawData) {
-                        packageData = rawData
-                        summary = inspected
-                    } else {
-                        // Automatically wrap raw/legacy/passcode packages into a valid .3105 package
-                        let fallbackBundle = "com.apple.springboard"
-                        let wrappedProject = PatchProject(
-                            name: record.package.name,
-                            author: record.package.author,
-                            isPrivate: false,
-                            bundleIdentifiers: [fallbackBundle],
-                            directories: [],
-                            rules: [
-                                PatchRule(
-                                    bundleID: fallbackBundle,
-                                    relativePath: "Documents/\(record.package.downloadURL.lastPathComponent)",
-                                    replacementFilename: record.package.downloadURL.lastPathComponent,
-                                    replacementData: rawData
-                                )
-                            ]
-                        )
-                        let encoded = try PatchPackageCodec.encodeNew(
-                            project: wrappedProject,
-                            password: nil
-                        )
-                        packageData = encoded.data
-                        summary = try PatchPackageCodec.inspect(packageData)
-                    }
-
-                    resolutionIndex.record(
-                        summary.packageID,
-                        sourceURL: record.sourceURL,
-                        packageIdentifier: record.package.identifier
-                    )
-                    persistResolutionIndex()
-                    let origin = PatchPackageOrigin(
-                        repositoryName: record.sourceName,
-                        repositoryURL: record.sourceURL,
-                        packageIdentifier: record.package.identifier
-                    )
-                    _ = patchStore.importPackage(
-                        data: packageData,
-                        password: record.package.sharedPassword,
-                        origin: origin
-                    )
-                    log("repository: installed \(record.package.identifier) into Installed library")
                 }
             } catch let error as PackageRepositoryError {
                 present(error)
@@ -350,12 +321,14 @@ final class PackageRepositoryStore: ObservableObject {
     }
 
     func isInstalled(_ record: RepositoryPackageRecord) -> Bool {
-        if record.package.kind == .wallpaper || record.package.downloadURL.pathExtension.lowercased() == "tendies" {
+        switch record.package.kind {
+        case .patch:
+            return false
+        case .wallpaper:
             return WallpaperPackageStore.contains(
                 repositoryIdentity: record.repositoryIdentity
             )
         }
-        return resolvedPackageID(for: record) != nil
     }
 
     private func persist() {
@@ -388,8 +361,8 @@ final class PackageRepositoryStore: ObservableObject {
         let source = RepositorySource(manifestURL: sourceURL)
         let ranges = [
             PackageOSRange(minimum: "17.0", maximum: "18.7.1", builds: nil),
-            PackageOSRange(minimum: "26.0", maximum: "26.6.1", builds: nil),
-            PackageOSRange(minimum: "27.0", maximum: "27.0", builds: ["24A5390f"])
+            PackageOSRange(minimum: "26.0", maximum: "26.7.2", builds: nil),
+            PackageOSRange(minimum: "27.0", maximum: "27.2", builds: ["24A5390f"])
         ]
         let previewPackages = [
             RepositoryPackage(
@@ -477,10 +450,10 @@ final class PackageRepositoryStore: ObservableObject {
         let source = RepositorySource(manifestURL: sourceURL)
         let ranges = [
             PackageOSRange(minimum: "17.0", maximum: "18.7.1", builds: nil),
-            PackageOSRange(minimum: "26.0", maximum: "26.6.1", builds: nil),
+            PackageOSRange(minimum: "26.0", maximum: "26.7.2", builds: nil),
             PackageOSRange(
                 minimum: "27.0",
-                maximum: "27.0",
+                maximum: "27.2",
                 builds: ["24A5355q", "24A5370h", "24A5380h", "24A5390f"]
             )
         ]
@@ -569,12 +542,18 @@ enum PackageRepositoryNetworkClient {
     }
 
     static func download(_ package: RepositoryPackage) async throws -> Data {
+        guard package.kind == .patch else {
+            throw PackageRepositoryError.invalidPackage
+        }
         let fileURL = try await verifiedDownload(package, maximumBytes: nil)
         defer { try? FileManager.default.removeItem(at: fileURL) }
         return try Data(contentsOf: fileURL, options: .mappedIfSafe)
     }
 
     static func downloadWallpaper(_ package: RepositoryPackage) async throws -> URL {
+        guard package.kind == .wallpaper else {
+            throw PackageRepositoryError.invalidPackage
+        }
         return try await verifiedDownload(
             package,
             maximumBytes: Int(WallpaperLabLimits.maximumArchiveBytes)
@@ -593,18 +572,20 @@ enum PackageRepositoryNetworkClient {
             let values = try download.fileURL.resourceValues(
                 forKeys: [.fileSizeKey, .isRegularFileKey]
             )
-            guard values.isRegularFile == true,
-                  let fileSize = values.fileSize,
-                  fileSize > 0 else {
+            guard values.isRegularFile == true else {
                 throw PackageRepositoryError.sourceUnavailable
             }
-            if let expectedSize = package.expectedSize, UInt64(fileSize) != expectedSize {
-                log("repository: size note for \(package.identifier): expected \(expectedSize), actual \(fileSize)")
+            if let expectedSize = package.expectedSize {
+                guard let fileSize = values.fileSize,
+                      fileSize >= 0,
+                      UInt64(fileSize) == expectedSize else {
+                    throw PackageRepositoryError.checksumMismatch
+                }
             }
             if let expectedDigest = package.sha256 {
-                let actualDigest = (try? PackageDigest.sha256Hex(fileURL: download.fileURL)) ?? ""
-                if actualDigest.caseInsensitiveCompare(expectedDigest) != .orderedSame {
-                    log("repository: sha256 note for \(package.identifier): manifest digest differs from updated file")
+                guard try PackageDigest.sha256Hex(fileURL: download.fileURL)
+                    .caseInsensitiveCompare(expectedDigest) == .orderedSame else {
+                    throw PackageRepositoryError.checksumMismatch
                 }
             }
             return download.fileURL

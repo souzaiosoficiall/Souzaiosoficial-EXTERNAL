@@ -16,23 +16,9 @@ enum AppTheme {
     static let appIconSize: CGFloat = 32
     static let emptyIconSize: CGFloat = 30
     static let selectionIconSize: CGFloat = 18
-    static let contentCardCornerRadius: CGFloat = 16
+    static let contentCardCornerRadius: CGFloat = 20
     static let contentCardInset: CGFloat = 16
-    static let contentCardPadding: CGFloat = 12
-}
-
-struct AppCardBorder: View {
-    var body: some View {
-        RoundedRectangle(
-            cornerRadius: AppTheme.contentCardCornerRadius,
-            style: .continuous
-        )
-        .strokeBorder(
-            Color(uiColor: .separator).opacity(0.22),
-            lineWidth: 0.5
-        )
-        .accessibilityHidden(true)
-    }
+    static let contentCardPadding: CGFloat = 16
 }
 
 struct AppRowIcon: View {
@@ -265,3 +251,16 @@ struct PistolIcon: View {
     }
 }
 
+struct AppCardBorder: View {
+    var body: some View {
+        RoundedRectangle(
+            cornerRadius: AppTheme.contentCardCornerRadius,
+            style: .continuous
+        )
+        .strokeBorder(
+            Color(uiColor: .separator).opacity(0.22),
+            lineWidth: 0.5
+        )
+        .accessibilityHidden(true)
+    }
+}

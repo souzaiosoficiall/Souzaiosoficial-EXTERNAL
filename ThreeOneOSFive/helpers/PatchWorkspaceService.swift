@@ -54,13 +54,13 @@ enum PatchWorkspaceService {
         defer { try? fileManager.removeItem(at: staging) }
 
         do {
-            try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: staging, withIntermediateDirectories: false)
             for bundleID in project.allBundleIdentifiers {
                 let canonical = try PatchPathValidator.canonicalBundleIdentifier(bundleID)
                 guard canonical == bundleID else { throw PatchPackageError.invalidProject }
                 try fileManager.createDirectory(
                     at: staging.appendingPathComponent(bundleID, isDirectory: true),
-                    withIntermediateDirectories: true
+                    withIntermediateDirectories: false
                 )
             }
             for directory in project.directories {
@@ -86,7 +86,7 @@ enum PatchWorkspaceService {
                 guard !fileManager.fileExists(atPath: target.path) else {
                     throw PatchPackageError.duplicateTarget
                 }
-                try rule.replacementData.write(to: target, options: .atomic)
+                try rule.replacementData.write(to: target, options: [.atomic, .completeFileProtection])
             }
             try writeManifest(
                 Manifest(
@@ -390,7 +390,7 @@ enum PatchWorkspaceService {
         let data = try encoder.encode(manifest)
         try data.write(
             to: workspaceURL.appendingPathComponent(manifestFilename),
-            options: .atomic
+            options: [.atomic, .completeFileProtection]
         )
     }
 

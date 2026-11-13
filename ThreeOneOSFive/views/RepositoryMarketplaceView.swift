@@ -122,7 +122,7 @@ struct LegacyRepositoryExploreView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.forward")
+                Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
             }

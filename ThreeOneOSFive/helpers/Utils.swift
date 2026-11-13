@@ -2,6 +2,7 @@ import Foundation
 import UIKit
 import Darwin
 import Combine
+import AudioToolbox
 
 // MARK: - Global logger
 class AppLog: ObservableObject {
@@ -11,7 +12,7 @@ class AppLog: ObservableObject {
         DispatchQueue.main.async { self.entries.append(msg) }
     }
 }
-func log(_ msg: String) { AppLog.shared.append("[3105] \(msg)") }
+func log(_ msg: String) { AppLog.shared.append("[Souzaiosoficial EXTERNAL] \(msg)") }
 
 // Retain the pipe for the app's lifetime so stdout/stderr stay redirected.
 private var logCapturePipe: Pipe?
@@ -206,5 +207,17 @@ enum AppUpdateChecker {
     private static func numericParts(_ version: String) -> [Int] {
         let core = version.split(separator: "-").first.map(String.init) ?? version
         return core.split(separator: ".").compactMap { Int($0.filter(\.isNumber)) }
+    }
+}
+
+
+// MARK: - Audio feedback used by the original Souzaiosoficial EXTERNAL buttons
+enum PatchAudioFeedback {
+    static func bypassActivated() {
+        AudioServicesPlaySystemSound(1057)
+    }
+
+    static func originalRestored() {
+        AudioServicesPlaySystemSound(1057)
     }
 }
