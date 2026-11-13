@@ -4,15 +4,19 @@ struct RepositoryHomeView: View {
     @Environment(\.appLanguage) private var language
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @EnvironmentObject private var store: PackageRepositoryStore
+    @EnvironmentObject private var pairingManager: LocalVPNPairingManager
     @State private var feed: [RepositoryPackageRecord] = []
 
     let onOpenSettings: () -> Void
     let onOpenLogs: () -> Void
+    var onOpenPairing: (() -> Void)? = nil
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 28) {
+                LazyVStack(alignment: .leading, spacing: 24) {
+                    localVPNStatusCard
+
                     if feed.isEmpty {
                         emptyContent
                     } else {
@@ -54,6 +58,79 @@ struct RepositoryHomeView: View {
                 rebuildFeed()
             }
         }
+    }
+
+    private var localVPNStatusCard: some View {
+        Button {
+            onOpenPairing?()
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            pairingManager.isTunnelConnected
+                                ? Color.green.opacity(0.18)
+                                : AppTheme.accent.opacity(0.16)
+                        )
+                        .frame(width: 44, height: 44)
+                    Image(
+                        systemName: pairingManager.isTunnelConnected
+                            ? "checkmark.shield.fill"
+                            : "shield.lefthalf.filled"
+                    )
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(
+                        pairingManager.isTunnelConnected ? Color.green : AppTheme.accent
+                    )
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text("LocalDevVPN · 3105")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.primary)
+                        Text(
+                            pairingManager.isTunnelConnected
+                                ? language.text("localvpn.connected")
+                                : language.text("localvpn.disconnected")
+                        )
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(pairingManager.isTunnelConnected ? Color.green : Color.orange)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(
+                            (pairingManager.isTunnelConnected ? Color.green : Color.orange).opacity(0.14),
+                            in: Capsule()
+                        )
+                    }
+                    Text(
+                        "\(pairingManager.networkConfig.tunnelIPWithPrefix) · \(pairingManager.networkConfig.deviceIPWithPrefix) · iOS \(AppInfo.osVersion)"
+                    )
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.forward")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(AppTheme.contentCardPadding)
+            .background(
+                Color(uiColor: .systemBackground),
+                in: RoundedRectangle(
+                    cornerRadius: AppTheme.contentCardCornerRadius,
+                    style: .continuous
+                )
+            )
+            .overlay {
+                AppCardBorder()
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var emptyContent: some View {
@@ -112,7 +189,7 @@ struct RepositoryHomeView: View {
                             HStack(spacing: 12) {
                                 RepositoryPackageRow(record: record)
                                 Spacer(minLength: 8)
-                                Image(systemName: "chevron.right")
+                                Image(systemName: "chevron.forward")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.tertiary)
                                     .accessibilityHidden(true)

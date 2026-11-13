@@ -1,10 +1,12 @@
 import SwiftUI
 import UIKit
+import Combine
 
 @main
 struct ThreeOneOSFiveApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var licenseManager = LicenseManager()
+    @StateObject private var pairingManager = LocalVPNPairingManager.shared
     @StateObject private var patchDraftCoordinator = PatchDraftCoordinator()
     @StateObject private var fileOperationCoordinator = FileOperationCoordinator()
     @StateObject private var patchStore = PatchProjectStore()
@@ -32,23 +34,38 @@ struct ThreeOneOSFiveApp: App {
                 }
             }
             .environmentObject(appState)
+            .environmentObject(pairingManager)
             .environmentObject(patchDraftCoordinator)
             .environmentObject(fileOperationCoordinator)
             .environmentObject(patchStore)
             .environmentObject(repositoryStore)
             .environment(\.appLanguage, language)
             .environment(\.locale, language.locale)
+            .environment(\.layoutDirection, language.layoutDirection)
             .onAppear {
                 licenseManager.beginLaunchSession()
+                pairingManager.refreshLiveHeartbeatAndTunnel()
                 appState.detectSupport()
             }
             .onChange(of: scenePhase) { phase in
                 guard phase == .active else { return }
                 licenseManager.beginLaunchSession()
+                pairingManager.refreshLiveHeartbeatAndTunnel()
+                appState.detectSupport()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .localVPNStateDidChange)) { _ in
                 appState.detectSupport()
             }
             .onOpenURL { url in
-                patchDraftCoordinator.presentImport(url)
+                let ext = url.pathExtension.lowercased()
+                let isPairingFile = ext == "mobiledevicepairing"
+                    || (ext == "plist" && url.lastPathComponent.lowercased().contains("pair"))
+                if isPairingFile {
+                    _ = try? pairingManager.importPairingFile(from: url)
+                    appState.detectSupport()
+                } else {
+                    patchDraftCoordinator.presentImport(url)
+                }
             }
             .preferredColorScheme(.dark)
         }
@@ -93,6 +110,13 @@ class AppState: ObservableObject {
             return
         }
 
+        let pairing = LocalVPNPairingManager.shared
+        if pairing.isReadyForDeviceOperations || pairing.isDevicePaired {
+            exploitStatus = .success(method: pairing.activeMethodDescription)
+            log("app: access ready via \(pairing.activeMethodDescription) on iOS \(AppInfo.osVersion) (\(AppInfo.osBuild))")
+            return
+        }
+
         let applicable = KernelExploit.isApplicable(
             major: v.major,
             minor: v.minor,
@@ -118,8 +142,11 @@ class AppState: ObservableObject {
     private func refreshKernelExploitStatus() {
         guard !kernelExploitRunning else { return }
 
-        // iOS < 26: kernel R/W success persists (no sandbox probe)
-        // iOS >= 26: verify full sandbox escape is still active
+        if LocalVPNPairingManager.shared.isDevicePaired {
+            exploitStatus = .success(method: LocalVPNPairingManager.shared.activeMethodDescription)
+            return
+        }
+
         if KernelExploit.requiresSandboxEscape {
             if KernelExploit.hasSandboxAccess() {
                 if !exploitStatus.isSuccess {
@@ -152,9 +179,14 @@ class AppState: ObservableObject {
                     } else {
                         log("app: kernel exploit success — kernel access active")
                     }
+                } else if LocalVPNPairingManager.shared.isDevicePaired {
+                    self.exploitStatus = .success(
+                        method: LocalVPNPairingManager.shared.activeMethodDescription
+                    )
+                    log("app: fallback to LocalDevVPN + Pairing (3105) active")
                 } else {
                     self.exploitStatus = .failed(method: "kexploit", code: -1)
-                    log("app: kernel exploit failed — relaunch the app before retrying")
+                    log("app: kernel exploit failed — relaunch the app or enable LocalDevVPN + Pairing")
                 }
             }
         }

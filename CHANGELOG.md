@@ -2,14 +2,22 @@
 
 All notable user-facing changes are documented in this file.
 
-## [2.0.1] - 2026-11-12
+## [2.2] - 2026-11-10
 
-### Changed
-- **Only iOS 26.0–26.7.2 and iOS 27.0–27.2 are supported now.**
-- iOS 17 / 18 kernel exploit support fully removed.
-- Sandbox escape uses **worse_query** (forcequitOS) exclusively for these versions.
-- Onboarding, Settings, dashboard unsupported messages, and all localizations (en/vi/zh) updated to the new ranges only.
-- `grantContainerAccess` prefers worse_query with App Group, falls back to legacy bad_query if needed.
+### Added
+
+- Appearance & customization: accent colors (sunset, ocean, emerald, indigo, rose, titanium) and light/dark/system theme.
+- Keypad / dialer themes via `.3105pass` packages: import, preview (light/dark), apply and restore, with repository install support.
+- Interactive plist editor for patch projects with raw-XML fallback.
+- System features: lock-screen footnote text and supervised-mode toggle.
+- AirLift pairing upgrades: PIN pairing with banner, diagnostics report (copy to clipboard), pairable-host Bonjour advertisement, silent-audio keep-alive.
+- `worse_query` app-group sandbox grant (iOS 26.6.2–27.2+) used automatically when app-group entitlements are present.
+- Arabic, English, Vietnamese and Simplified Chinese strings for all new features.
+
+### Fixed
+
+- Kept all 2.0 build-9 fixes: patch-store alerts are always shown, `.3105` import routing ignores false "pairing" filenames, pairing notification appears before jumping to Settings, honest error when only simulated containers are available.
+- Removed dead localization keys inherited from an external build (`license.gate.*`); no activation or license code exists in this fork.
 
 ## [1.0.1] - 2026-08-15
 

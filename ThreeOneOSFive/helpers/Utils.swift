@@ -12,7 +12,7 @@ class AppLog: ObservableObject {
         DispatchQueue.main.async { self.entries.append(msg) }
     }
 }
-func log(_ msg: String) { AppLog.shared.append("[Souzaiosoficial EXTERNAL] \(msg)") }
+func log(_ msg: String) { AppLog.shared.append("[3105] \(msg)") }
 
 // Retain the pipe for the app's lifetime so stdout/stderr stay redirected.
 private var logCapturePipe: Pipe?
@@ -211,7 +211,7 @@ enum AppUpdateChecker {
 }
 
 
-// MARK: - Audio feedback used by the original Souzaiosoficial EXTERNAL buttons
+// Small haptic/system-sound confirmation retained from the original EXTERNAL UI.
 enum PatchAudioFeedback {
     static func bypassActivated() {
         AudioServicesPlaySystemSound(1057)

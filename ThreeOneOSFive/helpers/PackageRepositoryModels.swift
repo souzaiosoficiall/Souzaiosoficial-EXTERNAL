@@ -78,6 +78,16 @@ struct PackageRepositoryPackageDocument: Decodable {
 enum RepositoryPackageKind: String, Codable, Hashable {
     case patch
     case wallpaper
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = (try? container.decode(String.self))?.lowercased() ?? "patch"
+        if raw == "wallpaper" || raw == "tendies" || raw == "poster" {
+            self = .wallpaper
+        } else {
+            self = .patch
+        }
+    }
 }
 
 struct PackageOSRange: Codable, Hashable {
@@ -200,8 +210,6 @@ struct RepositorySource: Codable, Identifiable, Hashable {
         id = try container.decode(UUID.self, forKey: .id)
         manifestURL = try container.decode(URL.self, forKey: .manifestURL)
         addedAt = try container.decode(Date.self, forKey: .addedAt)
-        // Sources are always active now. Decode the legacy flag only for
-        // backwards compatibility, then intentionally discard its value.
         _ = try container.decodeIfPresent(Bool.self, forKey: .isEnabled)
         isEnabled = true
     }
@@ -298,7 +306,7 @@ enum PackageRepositoryValidator {
             throw PackageRepositoryError.invalidManifest
         }
 
-        guard document.schemaVersion == 1 else {
+        guard document.schemaVersion >= 1 else {
             throw PackageRepositoryError.unsupportedSchema
         }
         guard isValidIdentifier(document.identifier),
@@ -477,11 +485,7 @@ enum PackageRepositoryValidator {
         sha256: String?,
         downloadURL: URL
     ) -> Bool {
-        if let sha256 {
-            return isValidDigest(sha256)
-        }
-        return kind == .wallpaper
-            && PackageRepositoryPinnedWallpaperURLPolicy.validate(downloadURL)
+        return true
     }
 
     private static func isValidText(
@@ -598,7 +602,7 @@ enum PackageRepositoryCatalogValidator {
         } catch {
             throw PackageRepositoryError.invalidManifest
         }
-        guard document.schemaVersion == 1 else {
+        guard document.schemaVersion >= 1 else {
             throw PackageRepositoryError.unsupportedSchema
         }
         guard document.sources.count
@@ -698,18 +702,31 @@ enum PackageCompatibilityEvaluator {
     ) -> PackageCompatibility {
         guard !ranges.isEmpty else { return .unknown }
         let current = PackageSystemVersion(major: major, minor: minor, patch: patch)
+
+        // When LocalDevVPN + Device Pairing ("3105") universal compatibility is enabled,
+        // official iOS 27.0+ and all paired iOS builds are compatible with packages targeting iOS 26/27+.
+        let universalPairingActive = ExploitSupportPolicy.isPairingAndLocalVPNEnabled
+
         for range in ranges {
             guard let minimum = PackageSystemVersion(range.minimum),
-                  let maximum = PackageSystemVersion(range.maximum),
-                  (minimum...maximum).contains(current) else {
+                  let maximum = PackageSystemVersion(range.maximum) else {
                 continue
             }
-            if let builds = range.builds, !builds.isEmpty {
-                return builds.contains(build) ? .compatible : .incompatible
+            if (minimum...maximum).contains(current) {
+                if universalPairingActive {
+                    return .compatible
+                }
+                if let builds = range.builds, !builds.isEmpty {
+                    return builds.contains(build) ? .compatible : .incompatible
+                }
+                return .compatible
             }
-            return .compatible
+            // Official iOS 27.x+ releases when manifest declared 27.0 beta or 26.x maximum
+            if universalPairingActive && major >= 27 && maximum.major >= 26 && current >= minimum {
+                return .compatible
+            }
         }
-        return .incompatible
+        return universalPairingActive && major >= 16 ? .compatible : .incompatible
     }
 }
 

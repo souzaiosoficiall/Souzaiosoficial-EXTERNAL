@@ -16,6 +16,7 @@ enum AppTheme {
     static let appIconSize: CGFloat = 32
     static let emptyIconSize: CGFloat = 30
     static let selectionIconSize: CGFloat = 18
+    // Layout metrics still used by retained 3105 v2.2 screens.
     static let contentCardCornerRadius: CGFloat = 20
     static let contentCardInset: CGFloat = 16
     static let contentCardPadding: CGFloat = 16
@@ -157,32 +158,60 @@ struct PatchUnlockPrompt: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                Text("Unlock Patch")
-                    .font(.title2.bold())
-                SecureField("Password", text: $password)
+            VStack(spacing: 18) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(AppTheme.accent)
+
+                Text("DESBLOQUEAR PACOTE")
+                    .font(.system(size: 18, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+
+                SecureField("Senha do pacote", text: $password)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
                     .textFieldStyle(.roundedBorder)
-                    .padding(.horizontal)
+                    .padding(.horizontal, 8)
+
                 if let key = store.unlockErrorKey {
                     Text(key)
-                        .foregroundStyle(.red)
                         .font(.caption)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
                 }
-                Button("Unlock") {
-                    dismiss()
+
+                Button {
+                    store.unlock(password: password)
+                } label: {
+                    HStack {
+                        if store.isBusy { ProgressView().tint(.white) }
+                        Text("DESBLOQUEAR")
+                    }
+                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(AppTheme.accent, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
                 }
-                .buttonStyle(.borderedProminent)
+                .disabled(password.isEmpty || store.isBusy)
+                .buttonStyle(.plain)
             }
-            .padding()
+            .padding(22)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AppTheme.pageBackground.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("Cancelar") {
                         store.cancelUnlock()
                         dismiss()
                     }
+                    .disabled(store.isBusy)
                 }
             }
+            .onChange(of: store.passwordRequest?.id) { requestID in
+                if requestID == nil { dismiss() }
+            }
         }
+        .preferredColorScheme(.dark)
     }
 }
 
@@ -251,6 +280,10 @@ struct PistolIcon: View {
     }
 }
 
+
+
+// Retained from the updated 3105 interface so the newer pairing and utility
+// screens can share the same card border while using the EXTERNAL red theme.
 struct AppCardBorder: View {
     var body: some View {
         RoundedRectangle(
@@ -258,8 +291,8 @@ struct AppCardBorder: View {
             style: .continuous
         )
         .strokeBorder(
-            Color(uiColor: .separator).opacity(0.22),
-            lineWidth: 0.5
+            Color.white.opacity(0.10),
+            lineWidth: 0.6
         )
         .accessibilityHidden(true)
     }

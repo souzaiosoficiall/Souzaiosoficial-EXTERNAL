@@ -6,9 +6,13 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var licenseManager: LicenseManager
+    @EnvironmentObject private var pairingManager: LocalVPNPairingManager
+    @Environment(\.appLanguage) private var language
 
     @State private var showSettings = false
     @State private var showCleaner = false
+    @State private var showPairing = false
+    @State private var showLogs = false
     @State private var showLicenseNotice = true
     @EnvironmentObject private var patchStore: PatchProjectStore
 
@@ -70,15 +74,33 @@ struct ContentView: View {
         .sheet(isPresented: $showCleaner) {
             CleanerView()
         }
+        .sheet(isPresented: $showPairing) {
+            PairingVPNView(
+                onOpenSettings: { showSettings = true },
+                onOpenLogs: { showLogs = true }
+            )
+        }
+        .sheet(isPresented: $showLogs) {
+            LogView()
+                .environment(\.appLanguage, language)
+                .environment(\.locale, language.locale)
+        }
         .sheet(item: $patchStore.passwordRequest, onDismiss: patchStore.cancelUnlock) { _ in
             PatchUnlockPrompt(store: patchStore)
         }
         .onAppear {
-            syncPatchStates()
+            if patchStore.isBusy {
+                patchMessage = "CARREGANDO PACOTES…"
+            } else {
+                syncPatchStates()
+            }
         }
         .onChange(of: patchStore.isBusy) { isBusy in
             if !isBusy {
                 syncPatchStates()
+                if patchMessage == "CARREGANDO PACOTES…" {
+                    patchMessage = "PRONTO — ESCOLHA UMA OPÇÃO"
+                }
             }
         }
         .onChange(of: scenePhase) { phase in
@@ -163,6 +185,7 @@ struct ContentView: View {
                     .padding(.top, 2)
 
                 profileInfoCard
+                deviceAccessSection
                 developerSection
             }
             .padding(.horizontal, 18)
@@ -244,6 +267,81 @@ struct ContentView: View {
             }
 
             Spacer(minLength: 8)
+        }
+    }
+
+    private var deviceAccessSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Rectangle()
+                    .fill(AppTheme.accent)
+                    .frame(width: 3, height: 18)
+
+                Text("ACESSO AO DISPOSITIVO")
+                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .tracking(1.1)
+                    .foregroundStyle(.white)
+            }
+
+            Button {
+                showPairing = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "iphone.gen3.radiowaves.left.and.right")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(AppTheme.accent)
+                        .frame(width: 40, height: 40)
+                        .background(
+                            AppTheme.accent.opacity(0.12),
+                            in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        )
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("CONFIGURAR iOS 27+")
+                            .font(.system(size: 13, weight: .black, design: .rounded))
+                            .foregroundStyle(.white)
+
+                        Text(
+                            pairingManager.isReadyForDeviceOperations
+                                ? "Acesso do dispositivo preparado"
+                                : (pairingManager.isDevicePaired
+                                    ? "Dispositivo pareado — concluir acesso"
+                                    : "Configurar LocalDevVPN e pareamento")
+                        )
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.52))
+                        .multilineTextAlignment(.leading)
+                    }
+
+                    Spacer(minLength: 4)
+
+                    Text(
+                        pairingManager.isReadyForDeviceOperations
+                            ? "PRONTO"
+                            : (pairingManager.isDevicePaired ? "PAREADO" : "CONFIGURAR")
+                    )
+                    .font(.system(size: 9, weight: .black, design: .rounded))
+                    .tracking(0.5)
+                    .foregroundStyle(
+                        pairingManager.isReadyForDeviceOperations ? .green : AppTheme.accent
+                    )
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.30))
+                }
+                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity, minHeight: 68)
+                .background(
+                    Color.black.opacity(0.48),
+                    in: RoundedRectangle(cornerRadius: 17, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .stroke(AppTheme.accent.opacity(0.26), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -853,6 +951,10 @@ struct ContentView: View {
 
     private func togglePatch(packageFilename: String, state: Binding<Bool>) {
         guard !patchOperationBusy else { return }
+        guard !patchStore.isBusy else {
+            patchMessage = "AGUARDE — CARREGANDO PACOTES"
+            return
+        }
 
         guard let item = patchStore.items.first(where: {
             $0.packageURL.lastPathComponent.caseInsensitiveCompare(packageFilename) == .orderedSame
@@ -903,9 +1005,15 @@ struct ContentView: View {
                     result = .applied
                 }
             } catch {
-                if let patchError = error as? PatchPackageError,
-                   case .targetAppUnavailable(let bundleID) = patchError {
-                    result = .unavailable("APP ALVO NAO ENCONTRADO — \(bundleID). Verifique se o jogo esta instalado e se o acesso ao sandbox esta ativo.")
+                if let patchError = error as? PatchPackageError {
+                    switch patchError {
+                    case .targetAppUnavailable(let bundleID):
+                        result = .unavailable("APP ALVO NÃO LOCALIZADO — \(bundleID). Verifique a instalação do jogo e configure o pareamento em Perfil > Configurar iOS 27+.")
+                    case .containerAccessUnavailable(let bundleID):
+                        result = .unavailable("SEM ACESSO AO CONTÊINER — \(bundleID). Conclua LocalDevVPN/Device Pairing e tente novamente.")
+                    default:
+                        result = .unavailable("FALHOU — \(String(describing: patchError))")
+                    }
                 } else {
                     result = .unavailable("FALHOU — \(String(describing: error))")
                 }
@@ -939,6 +1047,10 @@ struct ContentView: View {
 
     private func restoreOriginal() {
         guard !patchOperationBusy else { return }
+        guard !patchStore.isBusy else {
+            patchMessage = "AGUARDE — CARREGANDO PACOTES"
+            return
+        }
 
         let packageNames = [
             "pescoco.3105",

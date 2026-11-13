@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 private enum WallpaperPickerPolicy {
     static let packageType = UTType(filenameExtension: "tendies") ?? .data
-    static let allowedContentTypes: [UTType] = [packageType, .data]
+    static let allowedContentTypes: [UTType] = [.item, .data, packageType]
 }
 
 struct WallpaperLabView: View {

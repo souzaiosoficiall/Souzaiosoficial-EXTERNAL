@@ -417,7 +417,11 @@ struct FileBrowserView: View {
             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 12))
         } else {
             NavigationLink {
-                FileQuickLookView(file: entry)
+                if (entry.name as NSString).pathExtension.lowercased() == "plist" {
+                    PlistEditorView(fileURL: URL(fileURLWithPath: entry.path))
+                } else {
+                    FileQuickLookView(file: entry)
+                }
             } label: {
                 FileEntryRow(entry: entry, language: language, selectionState: nil)
             }

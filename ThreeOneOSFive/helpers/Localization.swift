@@ -3,6 +3,7 @@ import SwiftUI
 enum AppLanguage: String, CaseIterable, Identifiable {
     static let storageKey = "appLanguage"
 
+    case arabic = "ar"
     case english = "en"
     case vietnamese = "vi"
     case simplifiedChinese = "zh-Hans"
@@ -10,8 +11,17 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var locale: Locale { Locale(identifier: rawValue) }
 
+    var isRTL: Bool {
+        self == .arabic
+    }
+
+    var layoutDirection: LayoutDirection {
+        isRTL ? .rightToLeft : .leftToRight
+    }
+
     var displayName: String {
         switch self {
+        case .arabic: return "العربية"
         case .english: return "English"
         case .vietnamese: return "Tiếng Việt"
         case .simplifiedChinese: return "简体中文"

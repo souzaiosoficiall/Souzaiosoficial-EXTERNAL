@@ -37,6 +37,7 @@ struct OnboardingView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             controls
         }
+        .environment(\.layoutDirection, language.layoutDirection)
         .tint(AppTheme.accent)
     }
 
@@ -221,14 +222,18 @@ struct OnboardingView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
+                versionRow(icon: "checkmark.circle.fill", title: "iOS 17", value: ExploitSupportPolicy.verifiedIOS17Range, color: .green)
+                versionRow(icon: "checkmark.circle.fill", title: "iOS 18", value: ExploitSupportPolicy.verifiedIOS18Range, color: .green)
                 versionRow(icon: "checkmark.circle.fill", title: "iOS 26", value: ExploitSupportPolicy.verifiedIOS26Range, color: .green)
-                versionRow(icon: "checkmark.circle.fill", title: "iOS 27", value: ExploitSupportPolicy.verifiedIOS27Range, color: .green)
+                versionRow(icon: "checkmark.shield.fill", title: "iOS 27+", value: ExploitSupportPolicy.verifiedIOS27Range, color: .green)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                        Text("iOS 27 early betas").font(.subheadline.weight(.semibold))
+                        Text("iOS 27.0+").font(.subheadline.weight(.semibold))
                         Spacer()
-                        Text(language.text("onboarding.beta")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        Text(language.text("pairing.ios27_official_supported"))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.green)
                     }
                     ForEach(ExploitSupportPolicy.verifiedIOS27Builds, id: \.build) { v in
                         let betaLabel = language.text("onboarding.developer_beta", "\(v.beta)")
@@ -271,7 +276,7 @@ struct OnboardingView: View {
 
     private var installPage: some View {
         VStack(spacing: 20) {
-            featureIcon(systemName: "exclamationmark.shield.fill", color: .orange)
+            featureIcon(systemName: "checkmark.shield.fill", color: .green)
 
             VStack(spacing: 8) {
                 Text(language.text("onboarding.install_title"))
@@ -286,8 +291,8 @@ struct OnboardingView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
+                installBullet(icon: "checkmark.shield.fill", text: language.text("pairing.onboarding_bullet"), color: .green)
                 installBullet(icon: "checkmark.seal.fill", text: language.text("onboarding.install_ok"), color: .green)
-                installBullet(icon: "xmark.octagon.fill", text: language.text("onboarding.install_bad"), color: .red)
                 installBullet(icon: "exclamationmark.triangle.fill", text: language.text("onboarding.install_jailbreak"), color: .orange)
             }
             .padding(14)
@@ -393,7 +398,7 @@ struct OnboardingView: View {
                 guard let previousStep = step.prev else { return }
                 navigate(to: previousStep, direction: .backward)
             } label: {
-                Label(language.text("common.back"), systemImage: "chevron.left")
+                Label(language.text("common.back"), systemImage: "chevron.backward")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
@@ -410,7 +415,7 @@ struct OnboardingView: View {
             HStack(spacing: 6) {
                 Text(language.text(step == .install ? "common.finish" : "common.next"))
                 if step != .install {
-                    Image(systemName: "chevron.right")
+                    Image(systemName: "chevron.forward")
                         .font(.caption.weight(.semibold))
                         .accessibilityHidden(true)
                 }
@@ -472,10 +477,8 @@ enum OnboardingStore {
         if let stored = completedFingerprint, !stored.isEmpty {
             return stored != fp
         }
-        // Migration: old installs only have completedVersion
         if let completed = completedVersion, !completed.isEmpty {
             if completed == currentVersion {
-                // Same version, migrate silently — next overwrite will be detected via fingerprint
                 UserDefaults.standard.set(fp, forKey: completedFingerprintKey)
                 return false
             }
